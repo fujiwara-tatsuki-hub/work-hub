@@ -41,1911 +41,209 @@ type SentDisplayItem =
       created_at: string
       sender_id: string
       requests: RequestItem[]
-      unconfirmedRecipients: string[]
-      inProgressRecipients: string[]
-      completedRecipients: string[]
-      totalCount: number
-      unconfirmedCount: number
-      inProgressCount: number
-      completedCount: number
-      allCompleted: boolean
     }
+
+const STATUS_OPTIONS = ['未確認', '対応中', '完了']
+const PRIORITY_OPTIONS = ['低', '中', '高']
 
 const MY_CONNECT_URL =
   'https://script.google.com/a/macros/chronusinc.jp/s/AKfycbzSKDnhFKHWFQZwlUVpi5yrXHuH2GCc4gUny2fUslMkrABG0vAQrTCHzyHBre1fJJT-dg/exec'
 
-export default function Home() {
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-
-  const [requests, setRequests] = useState<RequestItem[]>([])
-  const [users, setUsers] = useState<UserItem[]>([])
-  const [currentUser, setCurrentUser] = useState<UserItem | null>(null)
-
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [deadline, setDeadline] = useState('')
-  const [priority, setPriority] = useState('中')
-  const [recipientIds, setRecipientIds] = useState<string[]>([])
-  const [recipientSearch, setRecipientSearch] = useState('')
-
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editContent, setEditContent] = useState('')
-  const [editDeadline, setEditDeadline] = useState('')
-  const [editPriority, setEditPriority] = useState('中')
-  const [editStatus, setEditStatus] = useState('未確認')
-
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [detailItem, setDetailItem] = useState<RequestItem | null>(null)
-  const [activeView, setActiveView] = useState<ViewKey>('dashboard')
-
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-  const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, email, name, role')
-      .order('created_at', { ascending: true })
-
-    if (error) {
-      console.error('fetchUsers error:', error)
-      throw error
-    }
-
-    const userList = data || []
-    setUsers(userList)
-    return userList
-  }
-
-  const fetchCurrentUser = async (uid: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, email, name, role')
-      .eq('id', uid)
-      .maybeSingle()
-
-    if (error) {
-      console.error('fetchCurrentUser error:', error)
-      throw error
-    }
-
-    setCurrentUser(data || null)
-    return data || null
-  }
-
-  const fetchRequests = async (uid: string) => {
-    const [sentRes, receivedRes] = await Promise.all([
-      supabase
-        .from('requests')
-        .select('*')
-        .eq('sender_id', uid)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('requests')
-        .select('*')
-        .eq('recipient_id', uid)
-        .order('created_at', { ascending: false }),
-    ])
-
-    if (sentRes.error) {
-      console.error('fetch sent requests error:', sentRes.error)
-      throw sentRes.error
-    }
-
-    if (receivedRes.error) {
-      console.error('fetch received requests error:', receivedRes.error)
-      throw receivedRes.error
-    }
-
-    const merged = [...(sentRes.data || []), ...(receivedRes.data || [])]
-    const dedupedMap = new Map<string, RequestItem>()
-
-    for (const item of merged) {
-      dedupedMap.set(item.id, item)
-    }
-
-    const deduped = Array.from(dedupedMap.values()).sort((a, b) => {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-
-    setRequests(deduped)
-  }
-
-  const refreshAll = async (uid: string) => {
-    await Promise.all([fetchUsers(), fetchCurrentUser(uid), fetchRequests(uid)])
-  }
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession()
-
-        if (error) {
-          console.error('getSession error:', error)
-        }
-
-        const uid = data.session?.user?.id ?? null
-        const email = data.session?.user?.email ?? null
-
-        setUserId(uid)
-        setUserEmail(email)
-
-        if (uid) {
-          await refreshAll(uid)
-        } else {
-          setRequests([])
-          setUsers([])
-          setCurrentUser(null)
-        }
-      } catch (error) {
-        console.error('init error:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    init()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      try {
-        const uid = session?.user?.id ?? null
-        const email = session?.user?.email ?? null
-
-        setUserId(uid)
-        setUserEmail(email)
-
-        if (uid) {
-          await refreshAll(uid)
-        } else {
-          setRequests([])
-          setUsers([])
-          setCurrentUser(null)
-        }
-      } catch (error) {
-        console.error('auth state change error:', error)
-      } finally {
-        setLoading(false)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'http://localhost:3000',
-      },
-    })
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    setUserId(null)
-    setUserEmail(null)
-    setRequests([])
-    setUsers([])
-    setCurrentUser(null)
-    setEditingId(null)
-    setShowCreateForm(false)
-    setDetailItem(null)
-    setActiveView('dashboard')
-    setMobileSidebarOpen(false)
-    setRecipientIds([])
-    setRecipientSearch('')
-  }
-
-  const availableRecipients = useMemo(() => {
-    return users.filter((user) => user.id !== userId)
-  }, [users, userId])
-
-  const filteredRecipients = useMemo(() => {
-    const keyword = recipientSearch.trim().toLowerCase()
-    if (!keyword) return availableRecipients
-
-    return availableRecipients.filter((user) => {
-      const name = user.name?.toLowerCase() || ''
-      const email = user.email?.toLowerCase() || ''
-      return name.includes(keyword) || email.includes(keyword)
-    })
-  }, [availableRecipients, recipientSearch])
-
-  useEffect(() => {
-    if (!showCreateForm) return
-    if (availableRecipients.length === 0) return
-
-    setRecipientIds((prev) => {
-      if (prev.length > 0) return prev
-      return availableRecipients.map((user) => user.id)
-    })
-  }, [showCreateForm, availableRecipients])
-
-  const toggleRecipient = (targetId: string) => {
-    setRecipientIds((prev) => {
-      if (prev.includes(targetId)) {
-        return prev.filter((id) => id !== targetId)
-      }
-      return [...prev, targetId]
-    })
-  }
-
-  const handleSelectAllRecipients = () => {
-    setRecipientIds(availableRecipients.map((user) => user.id))
-  }
-
-  const handleClearAllRecipients = () => {
-    setRecipientIds([])
-  }
-
-  const handleToggleCreateForm = () => {
-    setShowCreateForm((prev) => {
-      const next = !prev
-
-      if (next) {
-        setRecipientIds(availableRecipients.map((user) => user.id))
-        setRecipientSearch('')
-      }
-
-      return next
-    })
-  }
-
-  const generateBatchId = () => {
-    const randomPart = Math.random().toString(36).slice(2, 10)
-    return `batch_${Date.now()}_${randomPart}`
-  }
-
-  const handleCreateRequest = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (!userId) {
-      alert('ユーザー情報が取得できていません。再度ログインしてください。')
-      return
-    }
-
-    if (!title.trim()) {
-      alert('タイトルを入力してください。')
-      return
-    }
-
-    if (!content.trim()) {
-      alert('本文を入力してください。')
-      return
-    }
-
-    if (recipientIds.length === 0) {
-      alert('送信先ユーザーを1人以上選択してください。')
-      return
-    }
-
-    try {
-      setSubmitting(true)
-
-      const batchId = recipientIds.length >= 2 ? generateBatchId() : null
-
-      const insertPayload = recipientIds.map((recipientId) => ({
-        title: title.trim(),
-        content: content.trim(),
-        sender_id: userId,
-        recipient_id: recipientId,
-        status: '未確認',
-        priority,
-        deadline: deadline ? new Date(deadline).toISOString() : null,
-        completed_at: null,
-        batch_id: batchId,
-      }))
-
-      const { error } = await supabase.from('requests').insert(insertPayload)
-
-      if (error) {
-        console.error('insert error:', error)
-        alert(`依頼の保存に失敗しました。\n${error.message}`)
-        setSubmitting(false)
-        return
-      }
-
-      setTitle('')
-      setContent('')
-      setDeadline('')
-      setPriority('中')
-      setRecipientIds([])
-      setRecipientSearch('')
-      setShowCreateForm(false)
-      setActiveView('sent')
-      setSubmitting(false)
-
-      setTimeout(() => {
-        fetchRequests(userId).catch((fetchError) => {
-          console.error('post-insert fetchRequests error:', fetchError)
-        })
-      }, 0)
-    } catch (error) {
-      console.error('handleCreateRequest error:', error)
-      alert('依頼の保存中にエラーが発生しました。')
-      setSubmitting(false)
-    }
-  }
-
-  const handleStatusChange = async (id: string, nextStatus: string) => {
-    const completedAt = nextStatus === '完了' ? new Date().toISOString() : null
-
-    const { error } = await supabase
-      .from('requests')
-      .update({
-        status: nextStatus,
-        completed_at: completedAt,
-      })
-      .eq('id', id)
-
-    if (error) {
-      console.error('status update error:', error)
-      alert('ステータスの更新に失敗しました。')
-      return
-    }
-
-    setRequests((prev) =>
-      prev.map((req) =>
-        req.id === id
-          ? {
-              ...req,
-              status: nextStatus,
-              completed_at: completedAt,
-            }
-          : req
-      )
-    )
-
-    if (detailItem?.id === id) {
-      setDetailItem((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: nextStatus,
-              completed_at: completedAt,
-            }
-          : null
-      )
-    }
-  }
-
-  const startEdit = (req: RequestItem) => {
-    setEditingId(req.id)
-    setEditTitle(req.title)
-    setEditContent(req.content)
-    setEditDeadline(req.deadline ? toDateTimeLocalValue(req.deadline) : '')
-    setEditPriority(req.priority || '中')
-    setEditStatus(req.status || '未確認')
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditTitle('')
-    setEditContent('')
-    setEditDeadline('')
-    setEditPriority('中')
-    setEditStatus('未確認')
-  }
-
-  const handleUpdateRequest = async (id: string) => {
-    if (!userId) {
-      alert('ユーザー情報が取得できていません。再度ログインしてください。')
-      return
-    }
-
-    if (!editTitle.trim()) {
-      alert('タイトルを入力してください。')
-      return
-    }
-
-    if (!editContent.trim()) {
-      alert('本文を入力してください。')
-      return
-    }
-
-    try {
-      const completedAt = editStatus === '完了' ? new Date().toISOString() : null
-
-      const { data, error } = await supabase
-        .from('requests')
-        .update({
-          title: editTitle.trim(),
-          content: editContent.trim(),
-          priority: editPriority,
-          status: editStatus,
-          deadline: editDeadline ? new Date(editDeadline).toISOString() : null,
-          completed_at: completedAt,
-        })
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) {
-        console.error('update error:', error)
-        alert('依頼の更新に失敗しました。')
-        return
-      }
-
-      if (data) {
-        setRequests((prev) => prev.map((req) => (req.id === id ? data : req)))
-        if (detailItem?.id === id) {
-          setDetailItem(data)
-        }
-      }
-
-      cancelEdit()
-    } catch (error) {
-      console.error('handleUpdateRequest error:', error)
-      alert('依頼の更新中にエラーが発生しました。')
-    }
-  }
-
-  const handleDeleteRequest = async (id: string) => {
-    const ok = window.confirm('この依頼を削除しますか？')
-    if (!ok) return
-
-    try {
-      const { error } = await supabase.from('requests').delete().eq('id', id)
-
-      if (error) {
-        console.error('delete error:', error)
-        alert('依頼の削除に失敗しました。')
-        return
-      }
-
-      setRequests((prev) => prev.filter((req) => req.id !== id))
-
-      if (editingId === id) {
-        cancelEdit()
-      }
-
-      if (detailItem?.id === id) {
-        setDetailItem(null)
-      }
-    } catch (error) {
-      console.error('handleDeleteRequest error:', error)
-      alert('依頼の削除中にエラーが発生しました。')
-    }
-  }
-
-  const handleDeleteBatch = async (batchId: string) => {
-    const ok = window.confirm('この同時送信グループを削除しますか？')
-    if (!ok) return
-
-    try {
-      const { error } = await supabase.from('requests').delete().eq('batch_id', batchId)
-
-      if (error) {
-        console.error('delete batch error:', error)
-        alert('同時送信グループの削除に失敗しました。')
-        return
-      }
-
-      setRequests((prev) => prev.filter((req) => req.batch_id !== batchId))
-    } catch (error) {
-      console.error('handleDeleteBatch error:', error)
-      alert('同時送信グループの削除中にエラーが発生しました。')
-    }
-  }
-
-  const isOverdue = (deadlineValue: string | null) => {
-    if (!deadlineValue) return false
-    return new Date(deadlineValue).getTime() < new Date().getTime()
-  }
-
-  const getPriorityStyle = (value: string | null) => {
-    switch (value) {
-      case '高':
-        return 'bg-red-100 text-red-700'
-      case '中':
-        return 'bg-yellow-100 text-yellow-700'
-      case '低':
-        return 'bg-sky-100 text-sky-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
-    }
-  }
-
-  const getStatusStyle = (value: string | null) => {
-    switch (value) {
-      case '未確認':
-        return 'bg-red-100 text-red-700'
-      case '対応中':
-        return 'bg-yellow-100 text-yellow-700'
-      case '保留':
-        return 'bg-yellow-100 text-yellow-700'
-      case '完了':
-        return 'bg-gray-100 text-gray-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
-    }
-  }
-
-  const getUserLabel = (targetUserId: string | null) => {
-    if (!targetUserId) return '未設定'
-    const targetUser = users.find((user) => user.id === targetUserId)
-    return targetUser?.name?.trim() || targetUser?.email || '未設定'
-  }
-
-  const displayName =
-    currentUser?.name?.trim() || currentUser?.email || userEmail || ''
-
-  const selectedRecipientLabels = useMemo(() => {
-    return recipientIds.map((id) => getUserLabel(id))
-  }, [recipientIds, users])
-
-  const sentRequests = useMemo(() => {
-    return requests.filter((req) => req.sender_id === userId)
-  }, [requests, userId])
-
-  const receivedRequests = useMemo(() => {
-    return requests.filter((req) => req.recipient_id === userId)
-  }, [requests, userId])
-
-  const activeSentRequests = useMemo(() => {
-    return sentRequests.filter((req) => req.status !== '完了')
-  }, [sentRequests])
-
-  const activeReceivedRequests = useMemo(() => {
-    return receivedRequests.filter((req) => req.status !== '完了')
-  }, [receivedRequests])
-
-  const historySentRequests = useMemo(() => {
-    return sentRequests
-      .filter((req) => req.status === '完了')
-      .sort((a, b) => {
-        const completedA = a.completed_at ? new Date(a.completed_at).getTime() : 0
-        const completedB = b.completed_at ? new Date(b.completed_at).getTime() : 0
-        return completedB - completedA
-      })
-  }, [sentRequests])
-
-  const historyReceivedRequests = useMemo(() => {
-    return receivedRequests
-      .filter((req) => req.status === '完了')
-      .sort((a, b) => {
-        const completedA = a.completed_at ? new Date(a.completed_at).getTime() : 0
-        const completedB = b.completed_at ? new Date(b.completed_at).getTime() : 0
-        return completedB - completedA
-      })
-  }, [receivedRequests])
-
-  const sortActiveRequests = (list: RequestItem[]) => {
-    const getRank = (req: RequestItem) => {
-      const overdue = isOverdue(req.deadline)
-
-      if (req.status === '未確認' && overdue) return 1
-      if (req.status === '未確認' && !overdue) return 2
-      if (req.status === '対応中') return 3
-      return 4
-    }
-
-    return [...list].sort((a, b) => {
-      const rankA = getRank(a)
-      const rankB = getRank(b)
-
-      if (rankA !== rankB) return rankA - rankB
-
-      const deadlineA = a.deadline
-        ? new Date(a.deadline).getTime()
-        : Number.MAX_SAFE_INTEGER
-      const deadlineB = b.deadline
-        ? new Date(b.deadline).getTime()
-        : Number.MAX_SAFE_INTEGER
-
-      if (deadlineA !== deadlineB) return deadlineA - deadlineB
-
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    })
-  }
-
-  const sortedReceivedRequests = useMemo(() => {
-    return sortActiveRequests(activeReceivedRequests)
-  }, [activeReceivedRequests])
-
-  const sentDisplayItems = useMemo<SentDisplayItem[]>(() => {
-    const sorted = sortActiveRequests(activeSentRequests)
-    const batchMap = new Map<string, RequestItem[]>()
-    const singles: RequestItem[] = []
-
-    for (const req of sorted) {
-      if (req.batch_id) {
-        const current = batchMap.get(req.batch_id) || []
-        current.push(req)
-        batchMap.set(req.batch_id, current)
-      } else {
-        singles.push(req)
-      }
-    }
-
-    const batchItems: SentDisplayItem[] = Array.from(batchMap.entries()).map(
-      ([batchId, reqs]) => buildBatchDisplayItem(batchId, reqs, users)
-    )
-
-    const singleItems: SentDisplayItem[] = singles.map((request) => ({
-      type: 'single',
-      request,
-    }))
-
-    const merged = [...batchItems, ...singleItems].sort((a, b) => {
-      const timeA =
-        a.type === 'batch'
-          ? new Date(a.created_at).getTime()
-          : new Date(a.request.created_at).getTime()
-      const timeB =
-        b.type === 'batch'
-          ? new Date(b.created_at).getTime()
-          : new Date(b.request.created_at).getTime()
-
-      return timeB - timeA
-    })
-
-    return merged
-  }, [activeSentRequests, users])
-
-  const unconfirmedReceivedCount = useMemo(() => {
-    return receivedRequests.filter((req) => req.status === '未確認').length
-  }, [receivedRequests])
-
-  const inProgressReceivedCount = useMemo(() => {
-    return receivedRequests.filter((req) => req.status === '対応中').length
-  }, [receivedRequests])
-
-  const activeReceivedCount = useMemo(() => {
-    return activeReceivedRequests.length
-  }, [activeReceivedRequests])
-
-  const activeSentCount = useMemo(() => {
-    return activeSentRequests.length
-  }, [activeSentRequests])
-
-  const overdueUnconfirmedRequests = useMemo(() => {
-    return sortedReceivedRequests.filter(
-      (req) => req.status === '未確認' && isOverdue(req.deadline)
-    )
-  }, [sortedReceivedRequests])
-
-  const unhandledRequests = useMemo(() => {
-    return sortedReceivedRequests.filter((req) => req.status !== '完了')
-  }, [sortedReceivedRequests])
-
-  const recentSentRequests = useMemo(() => {
-    return activeSentRequests
-      .slice()
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 4)
-  }, [activeSentRequests])
-
-  const pageInfo: Record<ViewKey, { title: string; description: string }> = {
-    dashboard: {
-      title: 'ダッシュボード',
-      description: '今日の業務を確認しましょう。',
-    },
-    received: {
-      title: '受信依頼',
-      description: '自分に届いた依頼のみを表示しています。',
-    },
-    sent: {
-      title: '送信依頼',
-      description: '自分が送信した依頼のみを表示しています。',
-    },
-    history: {
-      title: '履歴',
-      description: '完了済みの依頼を確認できます。',
-    },
-  }
-
-  const sidebarItems: Array<{
-    key: ViewKey
+const STATUS_META: Record<
+  string,
+  {
     label: string
-    icon: React.ReactNode
-  }> = [
-    { key: 'dashboard', label: 'ダッシュボード', icon: <HomeIcon /> },
-    { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
-    { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
-    { key: 'history', label: '履歴', icon: <HistoryIcon /> },
-  ]
-
-  const changeView = (nextView: ViewKey) => {
-    setActiveView(nextView)
-    setMobileSidebarOpen(false)
-
-    if (nextView !== 'sent') {
-      setShowCreateForm(false)
-    }
+    className: string
   }
-
-  const openMyConnect = () => {
-    window.open(MY_CONNECT_URL, '_blank', 'noopener,noreferrer')
-  }
-
-  const renderCreateForm = () => {
-    if (!showCreateForm) return null
-
-    const isAllSelected =
-      availableRecipients.length > 0 && recipientIds.length === availableRecipients.length
-
-    return (
-      <section className="rounded-[20px] border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
-        <h2 className="text-lg font-semibold text-gray-900">新規依頼</h2>
-
-        <form onSubmit={handleCreateRequest} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              送信先ユーザー（複数選択可）
-            </label>
-
-            <div className="rounded-xl border border-gray-300 bg-white p-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-gray-700">
-                  <span className="font-medium">選択中:</span> {recipientIds.length}名
-                  {isAllSelected && availableRecipients.length > 0 && (
-                    <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                      全員選択中
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSelectAllRecipients}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 sm:text-sm"
-                  >
-                    全選択
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearAllRecipients}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 sm:text-sm"
-                  >
-                    選択解除
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <input
-                  type="text"
-                  value={recipientSearch}
-                  onChange={(e) => setRecipientSearch(e.target.value)}
-                  placeholder="ユーザー名・メールアドレスで検索"
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-                />
-              </div>
-
-              <div className="mt-3 max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-2">
-                {filteredRecipients.length === 0 ? (
-                  <p className="px-2 py-3 text-sm text-gray-500">
-                    該当するユーザーがいません
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                    {filteredRecipients.map((user) => {
-                      const checked = recipientIds.includes(user.id)
-                      const label = user.name?.trim() || user.email || '名称未設定'
-
-                      return (
-                        <label
-                          key={user.id}
-                          className="flex cursor-pointer items-center gap-3 rounded-lg bg-white px-3 py-2 transition hover:bg-gray-100"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleRecipient(user.id)}
-                            className="h-4 w-4 rounded border-gray-300"
-                          />
-                          <span className="truncate text-sm text-gray-800">{label}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {recipientIds.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRecipientLabels.slice(0, 8).map((label, index) => (
-                      <span
-                        key={`${label}-${index}`}
-                        className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                      >
-                        {label}
-                      </span>
-                    ))}
-
-                    {selectedRecipientLabels.length > 8 && (
-                      <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
-                        他 {selectedRecipientLabels.length - 8}名
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              タイトル
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="依頼のタイトルを入力"
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              本文
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="依頼内容を入力"
-              rows={5}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                対応期限
-              </label>
-              <input
-                type="datetime-local"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                優先度
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-              >
-                <option value="高">高</option>
-                <option value="中">中</option>
-                <option value="低">低</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:px-6"
-          >
-            {submitting
-              ? '保存中...'
-              : `依頼を保存${recipientIds.length > 0 ? `（${recipientIds.length}名）` : ''}`}
-          </button>
-        </form>
-      </section>
-    )
-  }
-
-  const renderRequestCard = (
-    req: RequestItem,
-    mode: 'received' | 'sent' | 'history-received' | 'history-sent'
-  ) => {
-    const overdueUnconfirmed = req.status === '未確認' && isOverdue(req.deadline)
-    const isHistory = mode === 'history-received' || mode === 'history-sent'
-
-    return (
-      <div
-        key={req.id}
-        className={`rounded-[20px] border p-4 shadow-sm ${
-          overdueUnconfirmed && !isHistory
-            ? 'border-red-200 bg-red-50'
-            : 'border-gray-200 bg-white'
-        }`}
-      >
-        {mode === 'sent' && editingId === req.id ? (
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                タイトル
-              </label>
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                本文
-              </label>
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  対応期限
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editDeadline}
-                  onChange={(e) => setEditDeadline(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  優先度
-                </label>
-                <select
-                  value={editPriority}
-                  onChange={(e) => setEditPriority(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-                >
-                  <option value="高">高</option>
-                  <option value="中">中</option>
-                  <option value="低">低</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                ステータス
-              </label>
-              <select
-                value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-gray-400"
-              >
-                <option value="未確認">未確認</option>
-                <option value="対応中">対応中</option>
-                <option value="完了">完了</option>
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                onClick={() => handleUpdateRequest(req.id)}
-                className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-gray-800 sm:w-auto"
-              >
-                保存
-              </button>
-              <button
-                onClick={cancelEdit}
-                className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-200 sm:w-auto"
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="line-clamp-2 text-lg font-semibold text-gray-900">
-                  {req.title}
-                </p>
-              </div>
-
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                {req.priority && (
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getPriorityStyle(
-                      req.priority
-                    )}`}
-                  >
-                    {req.priority}
-                  </span>
-                )}
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                    overdueUnconfirmed && mode === 'received'
-                      ? 'bg-red-100 text-red-700'
-                      : getStatusStyle(isHistory ? '完了' : req.status)
-                  }`}
-                >
-                  {isHistory ? '完了' : req.status || '未設定'}
-                </span>
-              </div>
-            </div>
-
-            <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-              {req.content}
-            </p>
-
-            <div className="space-y-1 text-sm text-gray-500">
-              {mode === 'received' || mode === 'history-received' ? (
-                <div>送信者: {getUserLabel(req.sender_id)}</div>
-              ) : (
-                <div>送信先: {getUserLabel(req.recipient_id)}</div>
-              )}
-
-              {isHistory ? (
-                <div>
-                  完了日:{' '}
-                  {req.completed_at
-                    ? new Date(req.completed_at).toLocaleDateString('ja-JP', {
-                        year: 'numeric',
-                        month: 'numeric',
-                        day: 'numeric',
-                      })
-                    : '未設定'}
-                </div>
-              ) : (
-                <div>
-                  期限:{' '}
-                  {req.deadline
-                    ? new Date(req.deadline).toLocaleDateString('ja-JP', {
-                        month: 'numeric',
-                        day: 'numeric',
-                      })
-                    : '期限未設定'}
-                </div>
-              )}
-            </div>
-
-            {overdueUnconfirmed && !isHistory && (
-              <span className="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-                期限切れ
-              </span>
-            )}
-
-            <div className="flex items-center gap-2">
-              {!isHistory && (
-                <select
-                  value={req.status || '未確認'}
-                  onChange={(e) => handleStatusChange(req.id, e.target.value)}
-                  className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm outline-none transition focus:border-gray-400"
-                >
-                  <option value="未確認">未確認</option>
-                  <option value="対応中">対応中</option>
-                  <option value="完了">完了</option>
-                </select>
-              )}
-
-              {isHistory && <div className="flex-1" />}
-
-              <button
-                onClick={() => setDetailItem(req)}
-                className="rounded-xl border border-gray-200 p-3 text-gray-700 transition hover:bg-gray-100"
-                aria-label="詳細"
-                title="詳細"
-              >
-                <EyeIcon />
-              </button>
-
-              {mode === 'sent' && (
-                <>
-                  <button
-                    onClick={() => startEdit(req)}
-                    className="rounded-xl border border-gray-200 p-3 text-gray-700 transition hover:bg-gray-100"
-                    aria-label="編集"
-                    title="編集"
-                  >
-                    <PencilIcon />
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteRequest(req.id)}
-                    className="rounded-xl border border-gray-200 p-3 text-red-500 transition hover:bg-red-50"
-                    aria-label="削除"
-                    title="削除"
-                  >
-                    <TrashIcon />
-                  </button>
-                </>
-              )}
-
-              {mode === 'history-sent' && (
-                <button
-                  onClick={() => handleDeleteRequest(req.id)}
-                  className="rounded-xl border border-gray-200 p-3 text-red-500 transition hover:bg-red-50"
-                  aria-label="削除"
-                  title="削除"
-                >
-                  <TrashIcon />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderBatchSentCard = (item: Extract<SentDisplayItem, { type: 'batch' }>) => {
-    const overdueUnconfirmed =
-      item.unconfirmedCount > 0 && item.deadline ? isOverdue(item.deadline) : false
-
-    return (
-      <div
-        key={item.batchId}
-        className={`rounded-[20px] border p-4 shadow-sm ${
-          overdueUnconfirmed ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'
-        }`}
-      >
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-lg font-semibold text-gray-900">{item.title}</p>
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {item.priority && (
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getPriorityStyle(
-                    item.priority
-                  )}`}
-                >
-                  {item.priority}
-                </span>
-              )}
-
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                  item.allCompleted
-                    ? 'bg-gray-100 text-gray-700'
-                    : item.unconfirmedCount > 0
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                }`}
-              >
-                {item.allCompleted
-                  ? '全員確認済み'
-                  : item.unconfirmedCount > 0
-                  ? `未確認 ${item.unconfirmedCount}名`
-                  : `対応中 ${item.inProgressCount}名`}
-              </span>
-
-              <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                同時送信 {item.totalCount}名
-              </span>
-            </div>
-          </div>
-
-          <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-            {item.content}
-          </p>
-
-          <div className="space-y-2 text-sm text-gray-500">
-            <div>
-              未確認者:{' '}
-              {item.unconfirmedCount > 0
-                ? formatUserList(item.unconfirmedRecipients)
-                : 'なし（全員確認済み）'}
-            </div>
-
-            {item.inProgressCount > 0 && (
-              <div>対応中: {formatUserList(item.inProgressRecipients)}</div>
-            )}
-
-            <div>
-              期限:{' '}
-              {item.deadline
-                ? new Date(item.deadline).toLocaleDateString('ja-JP', {
-                    month: 'numeric',
-                    day: 'numeric',
-                  })
-                : '期限未設定'}
-            </div>
-          </div>
-
-          {overdueUnconfirmed && (
-            <span className="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-              期限切れ
-            </span>
-          )}
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() =>
-                setDetailItem(
-                  item.requests
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                    )[0]
-                )
-              }
-              className="rounded-xl border border-gray-200 p-3 text-gray-700 transition hover:bg-gray-100"
-              aria-label="詳細"
-              title="詳細"
-            >
-              <EyeIcon />
-            </button>
-
-            <button
-              onClick={() => handleDeleteBatch(item.batchId)}
-              className="rounded-xl border border-gray-200 p-3 text-red-500 transition hover:bg-red-50"
-              aria-label="削除"
-              title="削除"
-            >
-              <TrashIcon />
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const renderDashboard = () => {
-    return (
-      <div className="space-y-6">
-        <section className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <DashboardPanel
-            title="マイコネクト"
-            icon={<LinkIcon />}
-            clickable
-            onClick={openMyConnect}
-          >
-            <p className="text-sm text-gray-600">指定のリンク先へ移動します。</p>
-            <div className="mt-4">
-              <div className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800">
-                <span>マイコネクトを開く</span>
-                <ExternalLinkIcon />
-              </div>
-            </div>
-          </DashboardPanel>
-
-          <DashboardPanel title="期限切れ・要対応" icon={<AlertIcon />}>
-            {overdueUnconfirmedRequests.length === 0 ? (
-              <p className="text-sm text-gray-500">期限切れの依頼はありません</p>
-            ) : (
-              <div className="space-y-3">
-                {overdueUnconfirmedRequests.slice(0, 4).map((req) => (
-                  <button
-                    key={req.id}
-                    onClick={() => {
-                      setActiveView('received')
-                      setDetailItem(req)
-                    }}
-                    className="flex w-full items-start justify-between gap-3 text-left"
-                  >
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-sm font-medium text-gray-900">
-                        {req.title}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">{getUserLabel(req.sender_id)}</p>
-                    </div>
-                    <span className="shrink-0 text-xs text-gray-400">
-                      {req.deadline
-                        ? new Date(req.deadline).toLocaleDateString('ja-JP', {
-                            month: 'numeric',
-                            day: 'numeric',
-                          })
-                        : ''}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </DashboardPanel>
-
-          <DashboardPanel
-            title="未対応の依頼"
-            icon={<InboxIcon colorClass="text-red-500" />}
-          >
-            {unhandledRequests.length === 0 ? (
-              <p className="text-sm text-gray-500">未対応の依頼はありません</p>
-            ) : (
-              <div className="space-y-3">
-                {unhandledRequests.slice(0, 4).map((req) => (
-                  <button
-                    key={req.id}
-                    onClick={() => {
-                      setActiveView('received')
-                      setDetailItem(req)
-                    }}
-                    className="flex w-full items-start justify-between gap-3 text-left"
-                  >
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-sm font-medium text-gray-900">
-                        {req.title}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-400">
-                        {req.status || '未設定'} / {getUserLabel(req.sender_id)}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs text-gray-400">
-                      {req.deadline
-                        ? new Date(req.deadline).toLocaleDateString('ja-JP', {
-                            month: 'numeric',
-                            day: 'numeric',
-                          })
-                        : ''}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </DashboardPanel>
-        </section>
-
-        <section className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <DashboardPanel
-            title="最近の送信依頼"
-            icon={<SendIcon colorClass="text-blue-500" />}
-          >
-            {recentSentRequests.length === 0 ? (
-              <p className="text-sm text-gray-500">送信依頼はありません</p>
-            ) : (
-              <div className="space-y-3">
-                {recentSentRequests.map((req) => (
-                  <button
-                    key={req.id}
-                    onClick={() => {
-                      setActiveView('sent')
-                      setDetailItem(req)
-                    }}
-                    className="w-full text-left"
-                  >
-                    <p className="line-clamp-1 text-sm font-medium text-gray-900">
-                      {req.title}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {req.status || '未設定'} / {getUserLabel(req.recipient_id)}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </DashboardPanel>
-
-          <DashboardPanel title="操作" icon={<SparkIcon />}>
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setActiveView('sent')
-                  setShowCreateForm(true)
-                  setRecipientIds(availableRecipients.map((user) => user.id))
-                  setRecipientSearch('')
-                }}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50"
-              >
-                新規依頼を作成
-              </button>
-
-              <button
-                onClick={() => setActiveView('received')}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50"
-              >
-                受信依頼を見る
-              </button>
-
-              <button
-                onClick={() => setActiveView('history')}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50"
-              >
-                履歴を見る
-              </button>
-            </div>
-          </DashboardPanel>
-
-          <DashboardPanel title="概要" icon={<SummaryIcon />}>
-            <div className="space-y-3 text-sm text-gray-600">
-              <div className="flex items-center justify-between gap-4">
-                <span>未確認</span>
-                <span className="font-medium text-gray-900">{unconfirmedReceivedCount}件</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>対応中</span>
-                <span className="font-medium text-gray-900">{inProgressReceivedCount}件</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>受信依頼</span>
-                <span className="font-medium text-gray-900">{activeReceivedCount}件</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>送信依頼</span>
-                <span className="font-medium text-gray-900">{activeSentCount}件</span>
-              </div>
-            </div>
-          </DashboardPanel>
-        </section>
-      </div>
-    )
-  }
-
-  const renderReceivedView = () => {
-    return (
-      <section className="space-y-4">
-        {sortedReceivedRequests.length === 0 ? (
-          <div className="rounded-[20px] border border-gray-200 bg-white p-6 text-center text-gray-500 shadow-sm">
-            自分に届いた依頼はありません
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {sortedReceivedRequests.map((req) => renderRequestCard(req, 'received'))}
-          </div>
-        )}
-      </section>
-    )
-  }
-
-  const renderSentView = () => {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            onClick={handleToggleCreateForm}
-            className="w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 transition hover:bg-gray-50 sm:w-auto"
-          >
-            {showCreateForm ? '新規依頼を閉じる' : '＋ 新規依頼'}
-          </button>
-        </div>
-
-        {renderCreateForm()}
-
-        <section className="space-y-4">
-          {sentDisplayItems.length === 0 ? (
-            <div className="rounded-[20px] border border-gray-200 bg-white p-6 text-center text-gray-500 shadow-sm">
-              まだ送信した依頼はありません
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {sentDisplayItems.map((item) =>
-                item.type === 'batch'
-                  ? renderBatchSentCard(item)
-                  : renderRequestCard(item.request, 'sent')
-              )}
-            </div>
-          )}
-        </section>
-      </div>
-    )
-  }
-
-  const renderHistoryView = () => {
-    return (
-      <div className="space-y-6">
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">履歴（自分に届いた依頼）</h2>
-
-          {historyReceivedRequests.length === 0 ? (
-            <div className="rounded-[20px] border border-gray-200 bg-white p-6 text-center text-gray-500 shadow-sm">
-              履歴はありません
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {historyReceivedRequests.map((req) =>
-                renderRequestCard(req, 'history-received')
-              )}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">履歴（自分が送った依頼）</h2>
-
-          {historySentRequests.length === 0 ? (
-            <div className="rounded-[20px] border border-gray-200 bg-white p-6 text-center text-gray-500 shadow-sm">
-              履歴はありません
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {historySentRequests.map((req) => renderRequestCard(req, 'history-sent'))}
-            </div>
-          )}
-        </section>
-      </div>
-    )
-  }
-
-  const renderActiveView = () => {
-    if (activeView === 'dashboard') return renderDashboard()
-    if (activeView === 'received') return renderReceivedView()
-    if (activeView === 'sent') return renderSentView()
-    return renderHistoryView()
-  }
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4">
-        <p className="text-base text-gray-600">読み込み中...</p>
-      </main>
-    )
-  }
-
-  if (!userEmail) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fafafa] px-4">
-        <div className="w-full max-w-md rounded-[20px] border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="space-y-3 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">業務管理アプリ</h1>
-            <p className="text-sm text-gray-600 sm:text-base">
-              Googleアカウントでログインしてください
-            </p>
-          </div>
-
-          <button
-            onClick={handleLogin}
-            className="mt-6 w-full rounded-xl bg-gray-900 py-3 text-sm font-medium text-white transition hover:bg-gray-800 sm:text-base"
-          >
-            Googleでログイン
-          </button>
-        </div>
-      </main>
-    )
-  }
-
-  return (
-    <main className="min-h-screen bg-[#fafafa] text-gray-900">
-      <div className="flex min-h-screen">
-        <aside
-          className={`hidden shrink-0 border-r border-gray-200 bg-[#f8f8f8] transition-all duration-200 lg:flex lg:flex-col ${
-            desktopSidebarOpen ? 'lg:w-[265px]' : 'lg:w-[74px]'
-          }`}
-        >
-          <div className="border-b border-gray-200 px-4 py-6">
-            {desktopSidebarOpen ? (
-              <div className="flex items-center gap-3">
-                <div className="text-gray-500">
-                  <GridIcon />
-                </div>
-                <div>
-                  <p className="text-[18px] font-semibold text-gray-900">業務管理</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center text-gray-500">
-                <GridIcon />
-              </div>
-            )}
-          </div>
-
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {sidebarItems.map((item) => {
-              const isActive = activeView === item.key
-
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => changeView(item.key)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] font-medium transition ${
-                    isActive
-                      ? 'bg-gray-200 text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                  } ${desktopSidebarOpen ? 'justify-start' : 'justify-center px-2'}`}
-                  title={item.label}
-                >
-                  <span className={`${isActive ? 'text-gray-800' : 'text-gray-500'}`}>
-                    {item.icon}
-                  </span>
-                  {desktopSidebarOpen && <span>{item.label}</span>}
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="border-t border-gray-200 px-3 py-4">
-            <button
-              onClick={handleLogout}
-              className={`w-full rounded-xl px-4 py-3 text-[15px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 ${
-                desktopSidebarOpen ? 'text-left' : 'text-center'
-              }`}
-              title="ログアウト"
-            >
-              {desktopSidebarOpen ? 'ログアウト' : '→'}
-            </button>
-          </div>
-        </aside>
-
-        {mobileSidebarOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-        )}
-
-        <aside
-          className={`fixed inset-y-0 left-0 z-50 w-[265px] transform border-r border-gray-200 bg-[#f8f8f8] transition-transform duration-200 lg:hidden ${
-            mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-        >
-          <div className="flex items-center justify-between border-b border-gray-200 px-5 py-5">
-            <div className="flex items-center gap-3">
-              <div className="text-gray-500">
-                <GridIcon />
-              </div>
-              <p className="text-[18px] font-semibold text-gray-900">業務管理</p>
-            </div>
-            <button
-              onClick={() => setMobileSidebarOpen(false)}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
-            >
-              閉じる
-            </button>
-          </div>
-
-          <nav className="space-y-1 px-3 py-4">
-            {sidebarItems.map((item) => {
-              const isActive = activeView === item.key
-
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => changeView(item.key)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[15px] font-medium transition ${
-                    isActive
-                      ? 'bg-gray-200 text-gray-900'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  <span className={`${isActive ? 'text-gray-800' : 'text-gray-500'}`}>
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="border-t border-gray-200 px-4 py-4">
-            <button
-              onClick={handleLogout}
-              className="w-full rounded-xl px-4 py-3 text-left text-[15px] font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-            >
-              ログアウト
-            </button>
-          </div>
-        </aside>
-
-        <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 border-b border-gray-200 bg-[#fafafa]/95 backdrop-blur">
-            <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-              <div className="flex min-w-0 items-center gap-3">
-                <button
-                  onClick={() => setMobileSidebarOpen(true)}
-                  className="rounded-xl p-2 text-gray-700 transition hover:bg-gray-100 lg:hidden"
-                  aria-label="メニューを開く"
-                >
-                  <MenuIcon />
-                </button>
-
-                <button
-                  onClick={() => setDesktopSidebarOpen((prev) => !prev)}
-                  className="hidden rounded-xl p-2 text-gray-700 transition hover:bg-gray-100 lg:inline-flex"
-                  aria-label="サイドバーを開閉"
-                  title="サイドバーを開閉"
-                >
-                  <MenuIcon />
-                </button>
-
-                <div className="min-w-0">
-                  <h1 className="truncate text-[18px] font-bold text-gray-900 sm:text-[20px]">
-                    {pageInfo[activeView].title}
-                  </h1>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {pageInfo[activeView].description}
-                  </p>
-                </div>
-              </div>
-
-              <div className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 sm:flex">
-                <span className="max-w-[120px] truncate">{displayName}</span>
-                <ChevronDownIcon />
-              </div>
-            </div>
-          </header>
-
-          <div className="px-4 py-6 sm:px-6 lg:px-8">{renderActiveView()}</div>
-        </div>
-      </div>
-
-      {detailItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[20px] bg-white p-5 shadow-xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h3 className="text-xl font-semibold text-gray-900">{detailItem.title}</h3>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {detailItem.priority && (
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getPriorityStyle(
-                        detailItem.priority
-                      )}`}
-                    >
-                      優先度: {detailItem.priority}
-                    </span>
-                  )}
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusStyle(
-                      detailItem.status
-                    )}`}
-                  >
-                    ステータス: {detailItem.status || '未設定'}
-                  </span>
-                  {detailItem.batch_id && (
-                    <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                      batch
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <button
-                onClick={() => setDetailItem(null)}
-                className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
-              >
-                閉じる
-              </button>
-            </div>
-
-            <div className="mt-5 space-y-4 text-sm text-gray-700">
-              <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-4 leading-7">
-                {detailItem.content}
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-gray-200 p-4">
-                  <p className="text-xs text-gray-500">送信者</p>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {getUserLabel(detailItem.sender_id)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 p-4">
-                  <p className="text-xs text-gray-500">送信先</p>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {getUserLabel(detailItem.recipient_id)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 p-4">
-                  <p className="text-xs text-gray-500">作成日</p>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {new Date(detailItem.created_at).toLocaleString('ja-JP')}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-200 p-4">
-                  <p className="text-xs text-gray-500">期限</p>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {detailItem.deadline
-                      ? new Date(detailItem.deadline).toLocaleString('ja-JP')
-                      : '期限未設定'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </main>
-  )
+> = {
+  未確認: {
+    label: '未確認',
+    className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+  },
+  対応中: {
+    label: '対応中',
+    className:
+      'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+  },
+  完了: {
+    label: '完了',
+    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+  },
 }
 
-function buildBatchDisplayItem(
-  batchId: string,
-  reqs: RequestItem[],
-  users: UserItem[]
-): Extract<SentDisplayItem, { type: 'batch' }> {
-  const getUserLabel = (targetUserId: string | null) => {
-    if (!targetUserId) return '未設定'
-    const targetUser = users.find((user) => user.id === targetUserId)
-    return targetUser?.name?.trim() || targetUser?.email || '未設定'
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ')
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '未設定'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  })
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return '未設定'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function isOverdue(deadline: string | null | undefined) {
+  if (!deadline) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(deadline)
+  due.setHours(0, 0, 0, 0)
+  return due < today
+}
+
+function getRequestCardStyle(request: RequestItem) {
+  const status = request.status ?? '未確認'
+  if (status === '未確認' && isOverdue(request.deadline)) {
+    return {
+      cardClassName:
+        'border border-red-200 bg-red-50/70 shadow-sm shadow-red-100/40',
+      statusClassName:
+        'bg-red-100 text-red-700 ring-1 ring-inset ring-red-200',
+    }
   }
 
-  const base = [...reqs].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )[0]
+  if (status === '未確認') {
+    return {
+      cardClassName: 'border border-slate-200 bg-white shadow-sm',
+      statusClassName:
+        'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
 
-  const unconfirmedRecipients = reqs
-    .filter((r) => r.status === '未確認')
-    .map((r) => getUserLabel(r.recipient_id))
-
-  const inProgressRecipients = reqs
-    .filter((r) => r.status === '対応中')
-    .map((r) => getUserLabel(r.recipient_id))
-
-  const completedRecipients = reqs
-    .filter((r) => r.status === '完了')
-    .map((r) => getUserLabel(r.recipient_id))
+  if (status === '対応中') {
+    return {
+      cardClassName: 'border border-slate-200 bg-white shadow-sm',
+      statusClassName:
+        'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+    }
+  }
 
   return {
-    type: 'batch',
-    batchId,
-    title: base.title,
-    content: base.content,
-    priority: base.priority,
-    deadline: base.deadline,
-    created_at: base.created_at,
-    sender_id: base.sender_id,
-    requests: reqs,
-    unconfirmedRecipients,
-    inProgressRecipients,
-    completedRecipients,
-    totalCount: reqs.length,
-    unconfirmedCount: unconfirmedRecipients.length,
-    inProgressCount: inProgressRecipients.length,
-    completedCount: completedRecipients.length,
-    allCompleted: reqs.every((r) => r.status === '完了'),
+    cardClassName: 'border border-slate-200 bg-white shadow-sm',
+    statusClassName:
+      STATUS_META[status]?.className ??
+      'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200',
   }
 }
 
-function formatUserList(users: string[]) {
-  if (users.length === 0) return 'なし'
-  if (users.length <= 3) return users.join('、')
-  return `${users.slice(0, 3).join('、')}、他 ${users.length - 3}名`
-}
-
-function DashboardPanel({
-  title,
-  icon,
-  children,
-  clickable = false,
-  onClick,
-}: {
-  title: string
-  icon: React.ReactNode
-  children: React.ReactNode
-  clickable?: boolean
-  onClick?: () => void
-}) {
-  const baseClassName =
-    'h-full rounded-[20px] border border-gray-200 bg-white p-5 shadow-sm md:min-h-[230px]'
-
-  const hoverClassName = clickable ? 'cursor-pointer transition hover:bg-gray-50' : ''
-
-  if (clickable && onClick) {
-    return (
-      <button
-        onClick={onClick}
-        className={`${baseClassName} ${hoverClassName} flex flex-col text-left`}
-      >
-        <div className="flex items-center gap-2">
-          <div>{icon}</div>
-          <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
-        </div>
-        <div className="mt-4 flex-1">{children}</div>
-      </button>
-    )
+function sortActiveRequests(requests: RequestItem[]) {
+  const rank = (request: RequestItem) => {
+    const status = request.status ?? '未確認'
+    if (status === '未確認' && isOverdue(request.deadline)) return 0
+    if (status === '未確認') return 1
+    if (status === '対応中') return 2
+    return 3
   }
 
+  return [...requests].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b)
+    if (rankDiff !== 0) return rankDiff
+
+    const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Number.MAX_SAFE_INTEGER
+    const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Number.MAX_SAFE_INTEGER
+    if (deadlineA !== deadlineB) return deadlineA - deadlineB
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+}
+
+function getUserLabel(user: UserItem | undefined) {
+  if (!user) return '未設定ユーザー'
+  return user.name?.trim() || user.email?.trim() || '名称未設定'
+}
+
+function SearchIcon() {
   return (
-    <div className={`${baseClassName} flex flex-col`}>
-      <div className="flex items-center gap-2">
-        <div>{icon}</div>
-        <h2 className="text-[15px] font-semibold text-gray-900">{title}</h2>
-      </div>
-      <div className="mt-4 flex-1">{children}</div>
-    </div>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
   )
 }
 
-function toDateTimeLocalValue(value: string) {
-  const date = new Date(value)
-  const offset = date.getTimezoneOffset()
-  const localDate = new Date(date.getTime() - offset * 60 * 1000)
-  return localDate.toISOString().slice(0, 16)
+function PlusIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  )
+}
+
+function LogoutIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  )
+}
+
+function LoginIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+    </svg>
+  )
 }
 
 function MenuIcon() {
@@ -1956,252 +254,42 @@ function MenuIcon() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.9"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M3 6h18" />
-      <path d="M3 12h18" />
-      <path d="M3 18h18" />
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
     </svg>
   )
 }
 
-function GridIcon() {
+function CloseIcon() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.9"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      <path d="M18 6 6 18" />
+      <path d="M6 6l12 12" />
     </svg>
   )
 }
 
-function HomeIcon({ colorClass = 'text-current' }: { colorClass?: string }) {
-  return (
-    <span className={colorClass}>
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 10.5 12 3l9 7.5" />
-        <path d="M5 9.5V21h14V9.5" />
-      </svg>
-    </span>
-  )
-}
-
-function InboxIcon({ colorClass = 'text-current' }: { colorClass?: string }) {
-  return (
-    <span className={colorClass}>
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M22 12h-4l-2 3H8l-2-3H2" />
-        <path d="M5.5 5h13l3.5 7v6H2v-6l3.5-7Z" />
-      </svg>
-    </span>
-  )
-}
-
-function SendIcon({ colorClass = 'text-current' }: { colorClass?: string }) {
-  return (
-    <span className={colorClass}>
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M22 2 11 13" />
-        <path d="M22 2 15 22l-4-9-9-4 20-7Z" />
-      </svg>
-    </span>
-  )
-}
-
-function HistoryIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 12a9 9 0 1 0 3-6.7" />
-      <path d="M3 3v6h6" />
-      <path d="M12 7v5l3 3" />
-    </svg>
-  )
-}
-
-function AlertIcon() {
-  return (
-    <span className="text-amber-500">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <path d="M12 8v5" />
-        <path d="M12 16h.01" />
-      </svg>
-    </span>
-  )
-}
-
-function SummaryIcon() {
-  return (
-    <span className="text-blue-500">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M4 19h16" />
-        <path d="M7 16V8" />
-        <path d="M12 16V5" />
-        <path d="M17 16v-3" />
-      </svg>
-    </span>
-  )
-}
-
-function LinkIcon() {
-  return (
-    <span className="text-gray-700">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4" />
-        <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 1 0 7.07 7.07L13 20" />
-      </svg>
-    </span>
-  )
-}
-
-function ExternalLinkIcon() {
+function EditIcon() {
   return (
     <svg
       width="16"
       height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M14 3h7v7" />
-      <path d="M10 14 21 3" />
-      <path d="M21 14v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4" />
-    </svg>
-  )
-}
-
-function SparkIcon() {
-  return (
-    <span className="text-violet-500">
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="m12 3 1.9 3.9L18 8.8l-3 2.9.7 4.2L12 14l-3.7 1.9.7-4.2-3-2.9 4.1-.9L12 3Z" />
-      </svg>
-    </span>
-  )
-}
-
-function EyeIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -2219,8 +307,8 @@ function PencilIcon() {
 function TrashIcon() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -2234,6 +322,25 @@ function TrashIcon() {
       <path d="M19 6l-1 14H6L5 6" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </svg>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   )
 }
@@ -2253,5 +360,1557 @@ function ChevronDownIcon() {
     >
       <path d="m6 9 6 6 6-6" />
     </svg>
+  )
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
+}
+
+function DashboardIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="3" width="8" height="8" rx="2" />
+      <rect x="13" y="3" width="8" height="5" rx="2" />
+      <rect x="13" y="10" width="8" height="11" rx="2" />
+      <rect x="3" y="13" width="8" height="8" rx="2" />
+    </svg>
+  )
+}
+
+function InboxIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 13.5V6.5A2.5 2.5 0 0 1 5.5 4h13A2.5 2.5 0 0 1 21 6.5v7" />
+      <path d="M3 13.5 5.4 18a2 2 0 0 0 1.76 1h9.68a2 2 0 0 0 1.76-1L21 13.5" />
+      <path d="M9 13h6" />
+    </svg>
+  )
+}
+
+function SendIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m3 20 18-8L3 4v6l12 2-12 2v6Z" />
+    </svg>
+  )
+}
+
+function HistoryIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 3v6h6" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+export default function Home() {
+  const [user, setUser] = useState<any>(null)
+  const [requests, setRequests] = useState<RequestItem[]>([])
+  const [users, setUsers] = useState<UserItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [createFormOpen, setCreateFormOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [activeView, setActiveView] = useState<ViewKey>('dashboard')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
+
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [recipientIds, setRecipientIds] = useState<string[]>([])
+  const [status, setStatus] = useState('未確認')
+  const [priority, setPriority] = useState('中')
+  const [deadline, setDeadline] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
+
+  const currentUserId = user?.id ?? null
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+
+    fetchUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
+    })
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  const fetchUsers = async () => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role')
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('users取得エラー:', error)
+      return
+    }
+
+    setUsers((data as UserItem[]) ?? [])
+  }
+
+  const fetchRequests = async () => {
+    if (!currentUserId) {
+      setRequests([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('requests')
+      .select(
+        'id, title, content, sender_id, recipient_id, status, priority, deadline, created_at, completed_at, batch_id'
+      )
+      .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('requests取得エラー:', error)
+      return
+    }
+
+    setRequests((data as RequestItem[]) ?? [])
+  }
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setRequests([])
+      setUsers([])
+      return
+    }
+
+    fetchUsers()
+    fetchRequests()
+  }, [currentUserId])
+
+  const currentUserProfile = useMemo(() => {
+    return users.find((item) => item.id === currentUserId)
+  }, [users, currentUserId])
+
+  const userMap = useMemo(() => {
+    return new Map(users.map((item) => [item.id, item]))
+  }, [users])
+
+  const receivedRequests = useMemo(() => {
+    return requests.filter((item) => item.recipient_id === currentUserId)
+  }, [requests, currentUserId])
+
+  const sentRequests = useMemo(() => {
+    return requests.filter((item) => item.sender_id === currentUserId)
+  }, [requests, currentUserId])
+
+  const activeReceivedRequests = useMemo(() => {
+    return sortActiveRequests(
+      receivedRequests.filter((item) => (item.status ?? '未確認') !== '完了')
+    )
+  }, [receivedRequests])
+
+  const historyRequests = useMemo(() => {
+    return requests
+      .filter((item) => (item.status ?? '未確認') === '完了')
+      .sort((a, b) => {
+        const completedA = a.completed_at ? new Date(a.completed_at).getTime() : 0
+        const completedB = b.completed_at ? new Date(b.completed_at).getTime() : 0
+        return completedB - completedA
+      })
+  }, [requests])
+
+  const sentDisplayItems = useMemo<SentDisplayItem[]>(() => {
+    const grouped = new Map<string, RequestItem[]>()
+    const singles: RequestItem[] = []
+
+    for (const item of sentRequests) {
+      if (item.batch_id) {
+        const current = grouped.get(item.batch_id) ?? []
+        current.push(item)
+        grouped.set(item.batch_id, current)
+      } else {
+        singles.push(item)
+      }
+    }
+
+    const batchItems: SentDisplayItem[] = Array.from(grouped.entries()).map(
+      ([batchId, batchRequests]) => {
+        const sorted = [...batchRequests].sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        const base = sorted[0]
+        return {
+          type: 'batch',
+          batchId,
+          title: base.title,
+          content: base.content,
+          priority: base.priority,
+          deadline: base.deadline,
+          created_at: base.created_at,
+          sender_id: base.sender_id,
+          requests: sorted,
+        }
+      }
+    )
+
+    const singleItems: SentDisplayItem[] = singles.map((request) => ({
+      type: 'single',
+      request,
+    }))
+
+    return [...batchItems, ...singleItems].sort((a, b) => {
+      const dateA =
+        a.type === 'batch'
+          ? new Date(a.created_at).getTime()
+          : new Date(a.request.created_at).getTime()
+      const dateB =
+        b.type === 'batch'
+          ? new Date(b.created_at).getTime()
+          : new Date(b.request.created_at).getTime()
+      return dateB - dateA
+    })
+  }, [sentRequests])
+
+  const filteredRecipientCandidates = useMemo(() => {
+    const keyword = userSearch.trim().toLowerCase()
+    const candidates = users.filter((item) => item.id !== currentUserId)
+
+    if (!keyword) return candidates
+
+    return candidates.filter((item) => {
+      const name = item.name?.toLowerCase() ?? ''
+      const email = item.email?.toLowerCase() ?? ''
+      return name.includes(keyword) || email.includes(keyword)
+    })
+  }, [users, currentUserId, userSearch])
+
+  const dashboardCounts = useMemo(() => {
+    const overduePendingCount = receivedRequests.filter((item) => {
+      const currentStatus = item.status ?? '未確認'
+      return currentStatus !== '完了' && isOverdue(item.deadline)
+    }).length
+
+    const pendingCount = receivedRequests.filter((item) => {
+      const currentStatus = item.status ?? '未確認'
+      return currentStatus !== '完了'
+    }).length
+
+    const recentSent = sentDisplayItems.slice(0, 5)
+
+    return {
+      overduePendingCount,
+      pendingCount,
+      recentSent,
+      receivedTotal: receivedRequests.length,
+      sentTotal: sentRequests.length,
+      completedTotal: historyRequests.length,
+    }
+  }, [receivedRequests, sentRequests, sentDisplayItems, historyRequests])
+
+  const resetForm = () => {
+    setTitle('')
+    setContent('')
+    setRecipientIds([])
+    setStatus('未確認')
+    setPriority('中')
+    setDeadline('')
+    setEditingId(null)
+    setUserSearch('')
+  }
+
+  const handleToggleRecipient = (id: string) => {
+    setRecipientIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
+  const handleSelectAllRecipients = () => {
+    setRecipientIds(filteredRecipientCandidates.map((item) => item.id))
+  }
+
+  const handleClearRecipients = () => {
+    setRecipientIds([])
+  }
+
+  const handleCreateRequest = async () => {
+    if (!currentUserId) return
+
+    const trimmedTitle = title.trim()
+    const trimmedContent = content.trim()
+
+    if (!trimmedTitle || !trimmedContent) {
+      alert('タイトルと内容を入力してください。')
+      return
+    }
+
+    if (recipientIds.length === 0) {
+      alert('共有先を1名以上選択してください。')
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      if (editingId) {
+        const target = requests.find((item) => item.id === editingId)
+        if (!target) {
+          alert('更新対象が見つかりませんでした。')
+          setSubmitting(false)
+          return
+        }
+
+        const updatePayload = {
+          title: trimmedTitle,
+          content: trimmedContent,
+          recipient_id: recipientIds[0] ?? null,
+          status,
+          priority,
+          deadline: deadline || null,
+        }
+
+        const { error } = await supabase
+          .from('requests')
+          .update(updatePayload)
+          .eq('id', editingId)
+
+        if (error) {
+          console.error('更新エラー:', error)
+          alert('更新に失敗しました。')
+          setSubmitting(false)
+          return
+        }
+
+        resetForm()
+        setCreateFormOpen(false)
+        setSubmitting(false)
+        fetchRequests()
+        return
+      }
+
+      const batchId =
+        recipientIds.length >= 2
+          ? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+          : null
+
+      const insertPayload = recipientIds.map((recipientId) => ({
+        title: trimmedTitle,
+        content: trimmedContent,
+        sender_id: currentUserId,
+        recipient_id: recipientId,
+        status,
+        priority,
+        deadline: deadline || null,
+        batch_id: batchId,
+      }))
+
+      const { error } = await supabase.from('requests').insert(insertPayload)
+
+      if (error) {
+        console.error('作成エラー:', error)
+        alert('保存に失敗しました。')
+        setSubmitting(false)
+        return
+      }
+
+      resetForm()
+      setCreateFormOpen(false)
+      setSubmitting(false)
+      fetchRequests()
+    } catch (error) {
+      console.error('保存処理エラー:', error)
+      alert('保存に失敗しました。')
+      setSubmitting(false)
+    }
+  }
+
+  const handleStartEdit = (request: RequestItem) => {
+    setEditingId(request.id)
+    setTitle(request.title)
+    setContent(request.content)
+    setRecipientIds(request.recipient_id ? [request.recipient_id] : [])
+    setStatus(request.status ?? '未確認')
+    setPriority(request.priority ?? '中')
+    setDeadline(request.deadline ?? '')
+    setCreateFormOpen(true)
+    setActiveView('sent')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDelete = async (requestId: string) => {
+    const confirmed = window.confirm('この依頼を削除しますか？')
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('requests')
+      .delete()
+      .eq('id', requestId)
+
+    if (error) {
+      console.error('削除エラー:', error)
+      alert('削除に失敗しました。')
+      return
+    }
+
+    fetchRequests()
+  }
+
+  const handleStatusChange = async (requestId: string, nextStatus: string) => {
+    const updatePayload: {
+      status: string
+      completed_at?: string | null
+    } = {
+      status: nextStatus,
+    }
+
+    if (nextStatus === '完了') {
+      updatePayload.completed_at = new Date().toISOString()
+    } else {
+      updatePayload.completed_at = null
+    }
+
+    const { error } = await supabase
+      .from('requests')
+      .update(updatePayload)
+      .eq('id', requestId)
+
+    if (error) {
+      console.error('ステータス更新エラー:', error)
+      alert('ステータス更新に失敗しました。')
+      return
+    }
+
+    fetchRequests()
+  }
+
+  const menuItems: Array<{
+    key: ViewKey
+    label: string
+    icon: JSX.Element
+  }> = [
+    { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
+    { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
+    { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
+    { key: 'history', label: '履歴', icon: <HistoryIcon /> },
+  ]
+
+  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
+    <div
+      className={cn(
+        'flex h-full flex-col border-r border-slate-200 bg-slate-950 text-white',
+        mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
+      )}
+    >
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+        <div className={cn('min-w-0', desktopSidebarCollapsed && !mobile && 'hidden')}>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Work-Hub
+          </p>
+          <h1 className="truncate text-lg font-semibold text-white">業務管理アプリ</h1>
+        </div>
+
+        {!mobile && (
+          <button
+            type="button"
+            onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+          >
+            {desktopSidebarCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+          </button>
+        )}
+
+        {mobile && (
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(false)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+          >
+            <CloseIcon />
+          </button>
+        )}
+      </div>
+
+      <div className="border-b border-white/10 px-4 py-4">
+        <div
+          className={cn(
+            'rounded-2xl border border-white/10 bg-white/5 p-4',
+            desktopSidebarCollapsed && !mobile && 'flex items-center justify-center p-3'
+          )}
+        >
+          {desktopSidebarCollapsed && !mobile ? (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+              {(currentUserProfile?.name?.trim() || user?.email || 'U').slice(0, 1)}
+            </div>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-white">
+                {currentUserProfile?.name?.trim() || 'ログイン中'}
+              </p>
+              <p className="mt-1 truncate text-xs text-slate-300">
+                {user?.email || 'メール未取得'}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <nav className="flex-1 space-y-2 px-3 py-4">
+        {menuItems.map((item) => {
+          const active = activeView === item.key
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => {
+                setActiveView(item.key)
+                setMobileSidebarOpen(false)
+              }}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
+                active
+                  ? 'bg-white text-slate-950 shadow-sm'
+                  : 'text-slate-200 hover:bg-white/10',
+                desktopSidebarCollapsed && !mobile && 'justify-center px-0'
+              )}
+            >
+              <span>{item.icon}</span>
+              {(!desktopSidebarCollapsed || mobile) && <span>{item.label}</span>}
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="border-t border-white/10 p-3">
+        {user ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
+              desktopSidebarCollapsed && !mobile ? 'px-0' : ''
+            )}
+          >
+            <LogoutIcon />
+            {(!desktopSidebarCollapsed || mobile) && <span>ログアウト</span>}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLogin}
+            className={cn(
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
+              desktopSidebarCollapsed && !mobile ? 'px-0' : ''
+            )}
+          >
+            <LoginIcon />
+            {(!desktopSidebarCollapsed || mobile) && <span>ログイン</span>}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
+  const renderRequestCard = (request: RequestItem, showRecipient = false) => {
+    const cardStyle = getRequestCardStyle(request)
+    const senderName = getUserLabel(userMap.get(request.sender_id))
+    const recipientName = getUserLabel(
+      request.recipient_id ? userMap.get(request.recipient_id) : undefined
+    )
+
+    return (
+      <div
+        key={request.id}
+        className={cn(
+          'rounded-3xl p-4 transition sm:p-5',
+          cardStyle.cardClassName
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900">{request.title}</h3>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+                  cardStyle.statusClassName
+                )}
+              >
+                {request.status ?? '未確認'}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                優先度：{request.priority ?? '中'}
+              </span>
+            </div>
+
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              {request.content}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+              <span>送信者：{senderName}</span>
+              {showRecipient && <span>共有先：{recipientName}</span>}
+              <span>期限：{formatDate(request.deadline)}</span>
+              <span>作成日：{formatDateTime(request.created_at)}</span>
+              {(request.status ?? '未確認') === '完了' && (
+                <span>完了日：{formatDateTime(request.completed_at)}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2 sm:pl-4">
+            {request.sender_id === currentUserId && (request.status ?? '未確認') !== '完了' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleStartEdit(request)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                  title="編集"
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(request.id)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                  title="削除"
+                >
+                  <TrashIcon />
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setDetailTarget(request)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              title="詳細"
+            >
+              <EyeIcon />
+            </button>
+          </div>
+        </div>
+
+        {request.recipient_id === currentUserId && (request.status ?? '未確認') !== '完了' && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {STATUS_OPTIONS.filter((item) => item !== '完了').map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => handleStatusChange(request.id, item)}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-xs font-semibold transition',
+                  (request.status ?? '未確認') === item
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+                )}
+              >
+                {item}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => handleStatusChange(request.id, '完了')}
+              className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+            >
+              完了
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderSentCard = (item: SentDisplayItem) => {
+    if (item.type === 'single') {
+      return renderRequestCard(item.request, true)
+    }
+
+    const unresolved = item.requests.filter(
+      (request) => (request.status ?? '未確認') !== '完了'
+    )
+    const unresolvedNames = unresolved.map((request) =>
+      getUserLabel(request.recipient_id ? userMap.get(request.recipient_id) : undefined)
+    )
+
+    return (
+      <div
+        key={item.batchId}
+        className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
+              <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
+                同時送信 {item.requests.length}名
+              </span>
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                優先度：{item.priority ?? '中'}
+              </span>
+            </div>
+
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+              {item.content}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+              <span>期限：{formatDate(item.deadline)}</span>
+              <span>作成日：{formatDateTime(item.created_at)}</span>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-semibold text-slate-800">未確認者：</p>
+              <p className="mt-1 break-words">
+                {unresolvedNames.length > 0 ? unresolvedNames.join('、') : '全員対応済み'}
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {item.requests
+                .slice()
+                .sort((a, b) => {
+                  const statusA = a.status ?? '未確認'
+                  const statusB = b.status ?? '未確認'
+                  if (statusA === statusB) return 0
+                  if (statusA === '未確認') return -1
+                  if (statusB === '未確認') return 1
+                  if (statusA === '対応中') return -1
+                  if (statusB === '対応中') return 1
+                  return 0
+                })
+                .map((request) => {
+                  const recipientName = getUserLabel(
+                    request.recipient_id ? userMap.get(request.recipient_id) : undefined
+                  )
+
+                  return (
+                    <div
+                      key={request.id}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {recipientName}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            ステータス：{request.status ?? '未確認'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {request.sender_id === currentUserId &&
+                            (request.status ?? '未確認') !== '完了' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(request.id)}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                                title="削除"
+                              >
+                                <TrashIcon />
+                              </button>
+                            )}
+                          <button
+                            type="button"
+                            onClick={() => setDetailTarget(request)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                            title="詳細"
+                          >
+                            <EyeIcon />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderCreateForm = () => (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {editingId ? '依頼を編集' : '新規依頼を作成'}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            タイトル・内容・共有先を入力してください
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setCreateFormOpen(false)
+            resetForm()
+          }}
+          className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          <CloseIcon />
+          閉じる
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            タイトル
+          </label>
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="例：◯◯案件の確認対応"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            内容
+          </label>
+          <textarea
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+            rows={5}
+            placeholder="依頼内容を入力してください"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+          />
+        </div>
+
+        <div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+            <label className="block text-sm font-medium text-slate-700">
+              共有先
+            </label>
+
+            {!editingId && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAllRecipients}
+                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  全選択
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearRecipients}
+                  className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  選択解除
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!editingId && (
+            <div className="relative mb-3">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <SearchIcon />
+              </span>
+              <input
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="名前・メールで検索"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+              />
+            </div>
+          )}
+
+          <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+            {(editingId ? users.filter((item) => item.id !== currentUserId) : filteredRecipientCandidates).map(
+              (item) => {
+                const checked = recipientIds.includes(item.id)
+                return (
+                  <label
+                    key={item.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleRecipient(item.id)}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                      disabled={!!editingId && item.id !== recipientIds[0]}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900">
+                        {getUserLabel(item)}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {item.email || 'メール未設定'}
+                      </p>
+                    </div>
+                  </label>
+                )
+              }
+            )}
+
+            {!editingId && filteredRecipientCandidates.length === 0 && (
+              <p className="py-6 text-center text-sm text-slate-500">
+                該当するユーザーがいません
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              ステータス
+            </label>
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              {STATUS_OPTIONS.filter((item) => item !== '完了').map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              優先度
+            </label>
+            <select
+              value={priority}
+              onChange={(event) => setPriority(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              {PRIORITY_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              期限
+            </label>
+            <input
+              type="date"
+              value={deadline}
+              onChange={(event) => setDeadline(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              resetForm()
+              setCreateFormOpen(false)
+            }}
+            className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            キャンセル
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCreateRequest}
+            disabled={submitting}
+            className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {submitting ? '保存中...' : editingId ? '更新する' : '保存する'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderDashboard = () => (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <a
+        href={MY_CONNECT_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">マイコネクト</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              外部リンク
+            </span>
+          </div>
+          <div className="mt-4 flex-1">
+            <h2 className="text-xl font-semibold text-slate-900">
+              マイコネクトを開く
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              タップすると指定のマイコネクト画面へ移動します。
+            </p>
+          </div>
+        </div>
+      </a>
+
+      <div className="rounded-[28px] border border-red-200 bg-red-50/80 p-5 shadow-sm">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-red-700">期限切れ・要対応</p>
+            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-200">
+              優先確認
+            </span>
+          </div>
+          <div className="mt-4 flex-1">
+            <p className="text-4xl font-bold tracking-tight text-red-700">
+              {dashboardCounts.overduePendingCount}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-red-700/80">
+              期限切れで未完了の依頼件数です。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">未対応の依頼</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              受信
+            </span>
+          </div>
+          <div className="mt-4 flex-1">
+            <p className="text-4xl font-bold tracking-tight text-slate-900">
+              {dashboardCounts.pendingCount}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              まだ完了していない受信依頼の件数です。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">最近の送信依頼</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              最新5件
+            </span>
+          </div>
+          <div className="mt-4 flex-1 space-y-3">
+            {dashboardCounts.recentSent.length > 0 ? (
+              dashboardCounts.recentSent.map((item) => {
+                if (item.type === 'single') {
+                  return (
+                    <div
+                      key={item.request.id}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {item.request.title}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        共有先：
+                        {getUserLabel(
+                          item.request.recipient_id
+                            ? userMap.get(item.request.recipient_id)
+                            : undefined
+                        )}
+                      </p>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div
+                    key={item.batchId}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {item.title}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      同時送信 {item.requests.length}名
+                    </p>
+                  </div>
+                )
+              })
+            ) : (
+              <p className="text-sm text-slate-500">まだ送信依頼はありません。</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">操作</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              クイック
+            </span>
+          </div>
+          <div className="mt-4 flex-1 space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm()
+                setCreateFormOpen((prev) => !prev)
+                setActiveView('dashboard')
+              }}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+            >
+              <span>新規依頼を追加</span>
+              <PlusIcon />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('received')}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+            >
+              <span>受信依頼を見る</span>
+              <ChevronRightIcon />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('sent')}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+            >
+              <span>送信依頼を見る</span>
+              <ChevronRightIcon />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">概要</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              件数サマリ
+            </span>
+          </div>
+          <div className="mt-4 grid flex-1 grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500">受信</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {dashboardCounts.receivedTotal}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500">送信</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {dashboardCounts.sentTotal}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4 text-center">
+              <p className="text-xs font-semibold text-slate-500">完了</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">
+                {dashboardCounts.completedTotal}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderReceived = () => (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">受信依頼</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            優先順位に沿って表示しています
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            resetForm()
+            setCreateFormOpen(true)
+          }}
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          <PlusIcon />
+          新規依頼
+        </button>
+      </div>
+
+      {activeReceivedRequests.length > 0 ? (
+        <div className="grid gap-4">
+          {activeReceivedRequests.map((request) => renderRequestCard(request))}
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+          受信中の依頼はありません。
+        </div>
+      )}
+    </div>
+  )
+
+  const renderSent = () => (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">送信依頼</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            単独送信と同時送信をまとめて表示します
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            resetForm()
+            setCreateFormOpen(true)
+          }}
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+        >
+          <PlusIcon />
+          新規依頼
+        </button>
+      </div>
+
+      {sentDisplayItems.length > 0 ? (
+        <div className="grid gap-4">
+          {sentDisplayItems.map((item) => renderSentCard(item))}
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+          送信した依頼はありません。
+        </div>
+      )}
+    </div>
+  )
+
+  const renderHistory = () => (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={() => setHistoryOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between rounded-[28px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:bg-slate-50"
+      >
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">履歴</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            完了済みの依頼を確認できます
+          </p>
+        </div>
+        <span className="inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-700">
+          {historyOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        </span>
+      </button>
+
+      {historyOpen &&
+        (historyRequests.length > 0 ? (
+          <div className="grid gap-4">
+            {historyRequests.map((request) =>
+              renderRequestCard(request, request.sender_id === currentUserId)
+            )}
+          </div>
+        ) : (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+            履歴はまだありません。
+          </div>
+        ))}
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="rounded-3xl bg-white px-6 py-5 text-sm font-medium text-slate-600 shadow-sm">
+          読み込み中...
+        </div>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">
+            Work-Hub
+          </p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+            業務管理アプリ
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Googleアカウントでログインして、受信依頼・送信依頼・履歴を確認します。
+          </p>
+
+          <button
+            type="button"
+            onClick={handleLogin}
+            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            <LoginIcon />
+            Googleでログイン
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-100 text-slate-900">
+      <div className="flex min-h-screen">
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+
+        {mobileSidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="absolute inset-0 bg-slate-950/40"
+            />
+            <div className="absolute left-0 top-0 h-full">
+              <Sidebar mobile />
+            </div>
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 lg:hidden"
+                >
+                  <MenuIcon />
+                </button>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Work-Hub
+                  </p>
+                  <h1 className="text-lg font-semibold text-slate-900">
+                    業務管理アプリ
+                  </h1>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="hidden rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700 sm:block">
+                  {currentUserProfile?.name?.trim() || user.email}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  <LogoutIcon />
+                  <span className="hidden sm:inline">ログアウト</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl space-y-5">
+              {createFormOpen && renderCreateForm()}
+
+              {!createFormOpen && activeView === 'dashboard' && renderDashboard()}
+              {!createFormOpen && activeView === 'received' && renderReceived()}
+              {!createFormOpen && activeView === 'sent' && renderSent()}
+              {!createFormOpen && activeView === 'history' && renderHistory()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {detailTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
+          <button
+            type="button"
+            onClick={() => setDetailTarget(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative z-10 w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">
+                  Detail
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-slate-900">
+                  {detailTarget.title}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDetailTarget(null)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-5">
+              <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    送信者
+                  </p>
+                  <p className="mt-1">
+                    {getUserLabel(userMap.get(detailTarget.sender_id))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    共有先
+                  </p>
+                  <p className="mt-1">
+                    {getUserLabel(
+                      detailTarget.recipient_id
+                        ? userMap.get(detailTarget.recipient_id)
+                        : undefined
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    ステータス
+                  </p>
+                  <p className="mt-1">{detailTarget.status ?? '未確認'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    優先度
+                  </p>
+                  <p className="mt-1">{detailTarget.priority ?? '中'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    期限
+                  </p>
+                  <p className="mt-1">{formatDate(detailTarget.deadline)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    作成日
+                  </p>
+                  <p className="mt-1">{formatDateTime(detailTarget.created_at)}</p>
+                </div>
+                {(detailTarget.status ?? '未確認') === '完了' && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      完了日
+                    </p>
+                    <p className="mt-1">{formatDateTime(detailTarget.completed_at)}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">内容</p>
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    {detailTarget.content}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   )
 }
