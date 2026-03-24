@@ -436,6 +436,24 @@ function ChevronRightIcon() {
   )
 }
 
+function ChevronUpIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  )
+}
+
 function DashboardIcon() {
   return (
     <svg
@@ -1398,13 +1416,35 @@ export default function Home() {
       return
     }
 
+    const nextGroupId = editLinkGroupId || null
+    const updatePayload: {
+      title: string
+      url: string
+      group_id: string | null
+      sort_order?: number
+    } = {
+      title: trimmedTitle,
+      url: trimmedUrl,
+      group_id: nextGroupId,
+    }
+
+    if ((editingLinkTarget.group_id ?? null) !== nextGroupId) {
+      const siblingLinks = links.filter(
+        (link) =>
+          (link.group_id ?? null) === nextGroupId &&
+          link.id !== editingLinkTarget.id
+      )
+      const maxSortOrder =
+        siblingLinks.length > 0
+          ? Math.max(...siblingLinks.map((link) => link.sort_order))
+          : -1
+
+      updatePayload.sort_order = maxSortOrder + 1
+    }
+
     const { error } = await supabase
       .from('links')
-      .update({
-        title: trimmedTitle,
-        url: trimmedUrl,
-        group_id: editLinkGroupId || null,
-      })
+      .update(updatePayload)
       .eq('id', editingLinkTarget.id)
 
     if (error) {
@@ -1415,6 +1455,107 @@ export default function Home() {
 
     closeLinkEditModal()
     await refreshLinksData()
+  }
+
+  const swapLinkGroupSortOrder = async (
+    currentGroup: LinkGroupItem,
+    targetGroup: LinkGroupItem
+  ) => {
+    const currentSortOrder = currentGroup.sort_order
+    const targetSortOrder = targetGroup.sort_order
+
+    const [{ error: currentError }, { error: targetError }] = await Promise.all([
+      supabase
+        .from('link_groups')
+        .update({ sort_order: targetSortOrder })
+        .eq('id', currentGroup.id),
+      supabase
+        .from('link_groups')
+        .update({ sort_order: currentSortOrder })
+        .eq('id', targetGroup.id),
+    ])
+
+    if (currentError || targetError) {
+      console.error('グループ並び替えエラー:', currentError ?? targetError)
+      alert('グループの並び替えに失敗しました。')
+      return
+    }
+
+    await refreshLinksData()
+  }
+
+  const handleMoveRootLinkGroup = async (
+    group: LinkGroupItem,
+    direction: 'up' | 'down'
+  ) => {
+    if (!isAdmin) return
+
+    const currentIndex = rootLinkGroups.findIndex((item) => item.id === group.id)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetGroup = rootLinkGroups[targetIndex]
+    if (!targetGroup) return
+
+    await swapLinkGroupSortOrder(group, targetGroup)
+  }
+
+  const handleMoveChildLinkGroup = async (
+    group: LinkGroupItem,
+    direction: 'up' | 'down'
+  ) => {
+    if (!isAdmin || !group.parent_id) return
+
+    const siblings = childGroupsMap.get(group.parent_id) ?? []
+    const currentIndex = siblings.findIndex((item) => item.id === group.id)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetGroup = siblings[targetIndex]
+    if (!targetGroup) return
+
+    await swapLinkGroupSortOrder(group, targetGroup)
+  }
+
+  const swapLinkSortOrder = async (currentLink: LinkItem, targetLink: LinkItem) => {
+    const currentSortOrder = currentLink.sort_order
+    const targetSortOrder = targetLink.sort_order
+
+    const [{ error: currentError }, { error: targetError }] = await Promise.all([
+      supabase
+        .from('links')
+        .update({ sort_order: targetSortOrder })
+        .eq('id', currentLink.id),
+      supabase
+        .from('links')
+        .update({ sort_order: currentSortOrder })
+        .eq('id', targetLink.id),
+    ])
+
+    if (currentError || targetError) {
+      console.error('リンク並び替えエラー:', currentError ?? targetError)
+      alert('リンクの並び替えに失敗しました。')
+      return
+    }
+
+    await refreshLinksData()
+  }
+
+  const handleMoveLink = async (link: LinkItem, direction: 'up' | 'down') => {
+    if (!isAdmin) return
+
+    const siblings = link.group_id
+      ? linksByGroupId.get(link.group_id) ?? []
+      : ungroupedLinks
+
+    const currentIndex = siblings.findIndex((item) => item.id === link.id)
+    if (currentIndex === -1) return
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetLink = siblings[targetIndex]
+    if (!targetLink) return
+
+    await swapLinkSortOrder(link, targetLink)
   }
 
   const handleDeleteLink = async (linkId: string) => {
@@ -2635,7 +2776,46 @@ export default function Home() {
     </div>
   )
 
-  const renderLinkRow = (link: LinkItem) => (
+  const renderMoveButtons = ({
+    onMoveUp,
+    onMoveDown,
+    disableUp,
+    disableDown,
+  }: {
+    onMoveUp: () => void
+    onMoveDown: () => void
+    disableUp: boolean
+    disableDown: boolean
+  }) => (
+    <div className="flex shrink-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={onMoveUp}
+        disabled={disableUp}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        title="上へ"
+      >
+        <ChevronUpIcon />
+      </button>
+      <button
+        type="button"
+        onClick={onMoveDown}
+        disabled={disableDown}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        title="下へ"
+      >
+        <ChevronDownIcon />
+      </button>
+    </div>
+  )
+
+  const renderLinkRow = (
+    link: LinkItem,
+    options?: {
+      disableMoveUp?: boolean
+      disableMoveDown?: boolean
+    }
+  ) => (
     <div
       key={link.id}
       className="flex items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:bg-slate-50"
@@ -2651,6 +2831,12 @@ export default function Home() {
 
       {isAdmin && (
         <div className="flex shrink-0 items-center gap-2">
+          {renderMoveButtons({
+            onMoveUp: () => handleMoveLink(link, 'up'),
+            onMoveDown: () => handleMoveLink(link, 'down'),
+            disableUp: options?.disableMoveUp ?? false,
+            disableDown: options?.disableMoveDown ?? false,
+          })}
           <button
             type="button"
             onClick={() => handleEditLink(link)}
@@ -2716,7 +2902,7 @@ export default function Home() {
 
           {visibleRootGroups.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleRootGroups.map((group) => (
+              {visibleRootGroups.map((group, index) => (
                 <div
                   key={group.id}
                   className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
@@ -2739,6 +2925,12 @@ export default function Home() {
 
                     {isAdmin && (
                       <div className="flex shrink-0 items-center gap-2">
+                        {renderMoveButtons({
+                          onMoveUp: () => handleMoveRootLinkGroup(group, 'up'),
+                          onMoveDown: () => handleMoveRootLinkGroup(group, 'down'),
+                          disableUp: index === 0,
+                          disableDown: index === visibleRootGroups.length - 1,
+                        })}
                         <button
                           type="button"
                           onClick={() => handleEditLinkGroup(group)}
@@ -2776,7 +2968,12 @@ export default function Home() {
               </div>
 
               <div className="mt-4 space-y-2">
-                {ungroupedLinks.map((link) => renderLinkRow(link))}
+                {ungroupedLinks.map((link, index) =>
+                  renderLinkRow(link, {
+                    disableMoveUp: index === 0,
+                    disableMoveDown: index === ungroupedLinks.length - 1,
+                  })
+                )}
               </div>
             </div>
           )}
@@ -2830,6 +3027,15 @@ export default function Home() {
 
             {isAdmin && (
               <div className="flex items-center gap-2">
+                {renderMoveButtons({
+                  onMoveUp: () => handleMoveRootLinkGroup(selectedGroup, 'up'),
+                  onMoveDown: () => handleMoveRootLinkGroup(selectedGroup, 'down'),
+                  disableUp:
+                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
+                  disableDown:
+                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) ===
+                    rootLinkGroups.length - 1,
+                })}
                 <button
                   type="button"
                   onClick={() => handleEditLinkGroup(selectedGroup)}
@@ -2855,11 +3061,16 @@ export default function Home() {
 
         {selectedOwnLinks.length > 0 && (
           <div className="space-y-2">
-            {selectedOwnLinks.map((link) => renderLinkRow(link))}
+            {selectedOwnLinks.map((link, index) =>
+              renderLinkRow(link, {
+                disableMoveUp: index === 0,
+                disableMoveDown: index === selectedOwnLinks.length - 1,
+              })
+            )}
           </div>
         )}
 
-        {selectedChildGroups.map((child) => {
+        {selectedChildGroups.map((child, childIndex) => {
           const childLinks = linksByGroupId.get(child.id) ?? []
           if (childLinks.length === 0) return null
 
@@ -2875,6 +3086,12 @@ export default function Home() {
 
                 {isAdmin && (
                   <div className="flex shrink-0 items-center gap-2">
+                    {renderMoveButtons({
+                      onMoveUp: () => handleMoveChildLinkGroup(child, 'up'),
+                      onMoveDown: () => handleMoveChildLinkGroup(child, 'down'),
+                      disableUp: childIndex === 0,
+                      disableDown: childIndex === selectedChildGroups.length - 1,
+                    })}
                     <button
                       type="button"
                       onClick={() => handleEditLinkGroup(child)}
@@ -2896,7 +3113,12 @@ export default function Home() {
               </div>
 
               <div className="space-y-2">
-                {childLinks.map((link) => renderLinkRow(link))}
+                {childLinks.map((link, linkIndex) =>
+                  renderLinkRow(link, {
+                    disableMoveUp: linkIndex === 0,
+                    disableMoveDown: linkIndex === childLinks.length - 1,
+                  })
+                )}
               </div>
             </div>
           )
