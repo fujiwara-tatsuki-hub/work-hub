@@ -1836,8 +1836,8 @@ export default function Home() {
       .eq('id', targetUserId)
 
     if (error) {
-      console.error('利用状態変更エラー:', error)
-      alert('利用状態の更新に失敗しました。')
+      console.error('アカウント状態変更エラー:', error)
+      alert('アカウント状態の更新に失敗しました。')
       return
     }
 
@@ -1847,8 +1847,52 @@ export default function Home() {
       action: 'user_status_updated',
       target_type: 'user',
       target_id: targetUserId,
-      detail: nextValue ? '有効化' : '停止',
+      detail: nextValue ? '再開' : '停止',
     })
+
+    fetchUsers()
+    fetchActivityLogs()
+  }
+
+  const handleDeleteUser = async (targetUser: UserItem) => {
+    if (!isAdmin) return
+
+    if (targetUser.id === currentUserId) {
+      alert('自分自身のアカウントは削除できません。')
+      return
+    }
+
+    if (targetUser.is_active !== false) {
+      alert('削除する前に、先に対象ユーザーを停止してください。')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `${getUserLabel(targetUser)} を削除しますか？
+
+この操作を行うと、アカウント管理一覧から対象ユーザーが消えます。`
+    )
+    if (!confirmed) return
+
+    await supabase.from('activity_logs').insert({
+      user_id: currentUserId,
+      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
+      action: 'user_deleted',
+      target_type: 'user',
+      target_id: targetUser.id,
+      detail: `${getUserLabel(targetUser)} を削除`,
+    })
+
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', targetUser.id)
+
+    if (error) {
+      console.error('ユーザー削除エラー:', error)
+      alert('ユーザー削除に失敗しました。')
+      return
+    }
 
     fetchUsers()
     fetchActivityLogs()
@@ -3513,6 +3557,9 @@ export default function Home() {
 
 
   const renderSettings = () => {
+    const activeUsersCount = users.filter((item) => item.is_active !== false).length
+    const adminUsersCount = users.filter((item) => item.role === 'admin').length
+
     return (
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3520,8 +3567,8 @@ export default function Home() {
             <h2 className="text-xl font-semibold text-slate-900">設定</h2>
             <p className="mt-1 text-sm text-slate-500">
               {isAdmin
-                ? 'アカウント管理・通知設定・利用状況確認を行えます'
-                : 'アカウント情報・表示設定・通知設定を変更できます'}
+                ? 'アカウント管理・管理設定・操作履歴を確認できます'
+                : 'アカウント情報と表示設定を確認できます'}
             </p>
           </div>
 
@@ -3535,66 +3582,65 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4">
             <p className="text-base font-semibold text-slate-900">アカウント情報</p>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-slate-500">名前</p>
-                <p className="mt-1 font-semibold text-slate-900">{currentUserProfile?.name || '未設定'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-slate-500">メール</p>
-                <p className="mt-1 break-all font-semibold text-slate-900">{currentUserProfile?.email || user?.email || '未取得'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-slate-500">権限</p>
-                <p className="mt-1 font-semibold text-slate-900">{isAdmin ? '管理者' : 'パートナー'}</p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs font-medium text-slate-500">最終ログイン</p>
-                <p className="mt-1 font-semibold text-slate-900">{formatDateTime(currentUserProfile?.last_login_at)}</p>
-              </div>
+          </div>
+          <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="border-b border-slate-200 px-5 py-4 xl:border-b-0 xl:border-r">
+              <p className="text-xs font-medium text-slate-500">名前</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{currentUserProfile?.name || '未設定'}</p>
+            </div>
+            <div className="border-b border-slate-200 px-5 py-4 sm:border-l-0 xl:border-b-0 xl:border-r">
+              <p className="text-xs font-medium text-slate-500">メール</p>
+              <p className="mt-1 break-all text-sm font-semibold text-slate-900">{currentUserProfile?.email || user?.email || '未取得'}</p>
+            </div>
+            <div className="border-b border-slate-200 px-5 py-4 xl:border-b-0 xl:border-r">
+              <p className="text-xs font-medium text-slate-500">権限</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{isAdmin ? '管理者' : 'パートナー'}</p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs font-medium text-slate-500">最終ログイン</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(currentUserProfile?.last_login_at)}</p>
             </div>
           </div>
+        </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-5 py-4">
             <p className="text-base font-semibold text-slate-900">表示設定</p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">初期表示画面</label>
-                <select
-                  value={settingsDefaultView}
-                  onChange={(event) => setSettingsDefaultView(event.target.value as ViewKey)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                >
-                  <option value="dashboard">ダッシュボード</option>
-                  <option value="received">受信依頼</option>
-                  <option value="sent">送信依頼</option>
-                  <option value="history">履歴</option>
-                  <option value="links">リンク一覧</option>
-                </select>
-              </div>
-
-              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">スマホでグループ単位表示</p>
-                  <p className="mt-1 text-xs text-slate-500">リンク一覧を縦並びで見やすく表示します</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settingsMobileGroupedLayout}
-                  onChange={(event) => setSettingsMobileGroupedLayout(event.target.checked)}
-                  className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                />
-              </label>
-            </div>
           </div>
+          <div className="grid grid-cols-1 gap-4 px-5 py-5 xl:grid-cols-3">
+            <div className="xl:col-span-1">
+              <label className="mb-2 block text-sm font-medium text-slate-700">初期表示画面</label>
+              <select
+                value={settingsDefaultView}
+                onChange={(event) => setSettingsDefaultView(event.target.value as ViewKey)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="dashboard">ダッシュボード</option>
+                <option value="received">受信依頼</option>
+                <option value="sent">送信依頼</option>
+                <option value="history">履歴</option>
+                <option value="links">リンク一覧</option>
+              </select>
+            </div>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-base font-semibold text-slate-900">通知設定</p>
-            <div className="mt-4 space-y-4">
-              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">スマホでグループ単位表示</p>
+                <p className="mt-1 text-xs text-slate-500">リンク一覧を縦並びで見やすく表示します</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={settingsMobileGroupedLayout}
+                onChange={(event) => setSettingsMobileGroupedLayout(event.target.checked)}
+                className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+              />
+            </label>
+
+            {isAdmin ? (
+              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">通知表示</p>
                   <p className="mt-1 text-xs text-slate-500">未確認・期限切れを画面内で強調表示します</p>
@@ -3606,60 +3652,90 @@ export default function Home() {
                   className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                 />
               </label>
-
-              <button
-                type="button"
-                onClick={handleSaveUserSettings}
-                disabled={settingsSubmitting}
-                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {settingsSubmitting ? '保存中...' : '設定を保存する'}
-              </button>
-            </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
+                <p className="text-sm font-semibold text-slate-900">通知設定</p>
+                <p className="mt-1 text-xs text-slate-500">通知設定は管理者のみ変更できます。</p>
+              </div>
+            )}
+          </div>
+          <div className="border-t border-slate-200 px-5 py-4">
+            <button
+              type="button"
+              onClick={handleSaveUserSettings}
+              disabled={settingsSubmitting}
+              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto sm:min-w-[180px]"
+            >
+              {settingsSubmitting ? '保存中...' : '設定を保存する'}
+            </button>
           </div>
         </div>
 
         {isAdmin && (
           <>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <div className="xl:col-span-2 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_0.8fr]">
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                   <div>
                     <p className="text-base font-semibold text-slate-900">アカウント管理</p>
-                    <p className="mt-1 text-sm text-slate-500">ロール変更・利用状態を管理できます</p>
+                    <p className="mt-1 text-sm text-slate-500">ロール変更・停止 / 再開・削除を行えます</p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                     {users.length}名
                   </span>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
-                  {users.map((item) => (
-                    <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
-                      <p className="mt-1 break-all text-xs text-slate-500">{item.email || 'メール未設定'}</p>
-                      <div className="mt-3 space-y-3">
+                <div className="hidden xl:block">
+                  <div className="grid grid-cols-[1.5fr_1.9fr_0.9fr_1fr_1.3fr_1.7fr] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-500">
+                    <p>名前</p>
+                    <p>メール</p>
+                    <p>ロール</p>
+                    <p>アカウント状態</p>
+                    <p>最終ログイン</p>
+                    <p>操作</p>
+                  </div>
+
+                  <div className="divide-y divide-slate-200">
+                    {users.map((item) => (
+                      <div key={item.id} className="grid grid-cols-[1.5fr_1.9fr_0.9fr_1fr_1.3fr_1.7fr] gap-3 px-5 py-4 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{getUserLabel(item)}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-slate-600">{item.email || 'メール未設定'}</p>
+                        </div>
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">ロール</label>
                           <select
                             value={item.role ?? 'user'}
                             onChange={(event) => handleRoleChange(item.id, event.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-slate-400"
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400"
                           >
-                            <option value="admin">admin</option>
-                            <option value="user">user</option>
+                            <option value="admin">管理者</option>
+                            <option value="user">パートナー</option>
                           </select>
                         </div>
-                        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3">
-                          <div>
-                            <p className="text-xs font-medium text-slate-500">利用状態</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">{item.is_active === false ? '停止中' : '利用中'}</p>
-                          </div>
+                        <div>
+                          <span
+                            className={cn(
+                              'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
+                              item.is_active === false
+                                ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
+                            )}
+                          >
+                            {item.is_active === false ? '停止中' : '有効'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-slate-600">{formatDateTime(item.last_login_at)}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => handleToggleUserActive(item.id, item.is_active === false)}
+                            disabled={item.id === currentUserId}
                             className={cn(
-                              'inline-flex h-11 min-w-[96px] items-center justify-center rounded-2xl px-4 text-sm font-semibold transition',
+                              'inline-flex h-11 min-w-[76px] items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400',
                               item.is_active === false
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                                 : 'bg-slate-900 text-white hover:bg-slate-800'
@@ -3667,83 +3743,164 @@ export default function Home() {
                           >
                             {item.is_active === false ? '再開' : '停止'}
                           </button>
+
+                          {item.is_active === false && item.id !== currentUserId && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(item)}
+                              className="inline-flex h-11 min-w-[76px] items-center justify-center rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-500"
+                            >
+                              削除
+                            </button>
+                          )}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="divide-y divide-slate-200 xl:hidden">
+                  {users.map((item) => (
+                    <div key={item.id} className="px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
+                          <p className="mt-1 break-all text-xs text-slate-500">{item.email || 'メール未設定'}</p>
+                        </div>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold',
+                            item.is_active === false
+                              ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
+                          )}
+                        >
+                          {item.is_active === false ? '停止中' : '有効'}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">ロール</label>
+                          <select
+                            value={item.role ?? 'user'}
+                            onChange={(event) => handleRoleChange(item.id, event.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-slate-400"
+                          >
+                            <option value="admin">管理者</option>
+                            <option value="user">パートナー</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">最終ログイン</label>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+                            {formatDateTime(item.last_login_at)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleUserActive(item.id, item.is_active === false)}
+                          disabled={item.id === currentUserId}
+                          className={cn(
+                            'inline-flex h-11 flex-1 items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400',
+                            item.is_active === false
+                              ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                              : 'bg-slate-900 text-white hover:bg-slate-800'
+                          )}
+                        >
+                          {item.is_active === false ? '再開' : '停止'}
+                        </button>
+
+                        {item.is_active === false && item.id !== currentUserId && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(item)}
+                            className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-500"
+                          >
+                            削除
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-base font-semibold text-slate-900">利用状況確認</p>
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-medium text-slate-500">全ユーザー数</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.length}</p>
+              <div className="space-y-4">
+                <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 px-5 py-4">
+                    <p className="text-base font-semibold text-slate-900">利用状況確認</p>
                   </div>
-                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-medium text-slate-500">利用中ユーザー</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.filter((item) => item.is_active !== false).length}</p>
+                  <div className="grid grid-cols-1 divide-y divide-slate-200">
+                    <div className="px-5 py-4">
+                      <p className="text-xs font-medium text-slate-500">全ユーザー数</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{users.length}</p>
+                    </div>
+                    <div className="px-5 py-4">
+                      <p className="text-xs font-medium text-slate-500">有効ユーザー数</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{activeUsersCount}</p>
+                    </div>
+                    <div className="px-5 py-4">
+                      <p className="text-xs font-medium text-slate-500">管理者数</p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900">{adminUsersCount}</p>
+                    </div>
                   </div>
-                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
-                    <p className="text-xs font-medium text-slate-500">管理者数</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.filter((item) => item.role === 'admin').length}</p>
+                </div>
+
+                <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-200 px-5 py-4">
+                    <p className="text-base font-semibold text-slate-900">最終ログイン確認</p>
+                  </div>
+                  <div className="divide-y divide-slate-200">
+                    {users.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
+                          <p className="mt-1 text-xs text-slate-500">{item.role === 'admin' ? '管理者' : 'パートナー'}</p>
+                        </div>
+                        <p className="shrink-0 text-xs font-medium text-slate-600">{formatDateTime(item.last_login_at)}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-base font-semibold text-slate-900">最終ログイン確認</p>
-                <div className="mt-4 space-y-3">
-                  {users.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
-                        <p className="mt-1 text-xs text-slate-500">{item.role === 'admin' ? 'admin' : 'user'}</p>
-                      </div>
-                      <p className="shrink-0 text-xs font-medium text-slate-600">{formatDateTime(item.last_login_at)}</p>
-                    </div>
-                  ))}
+            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                <div>
+                  <p className="text-base font-semibold text-slate-900">アクティビティログ確認</p>
+                  <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={fetchActivityLogs}
+                  className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  更新
+                </button>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">アクティビティログ確認</p>
-                    <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fetchActivityLogs}
-                    className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    更新
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {activityLogs.length > 0 ? (
-                    activityLogs.map((log) => (
-                      <div key={log.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-slate-900">{log.user_name || '不明ユーザー'}</p>
-                          <p className="text-xs text-slate-500">{formatDateTime(log.created_at)}</p>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-700">
-                          {log.action} / {log.target_type}
-                        </p>
-                        {log.detail && <p className="mt-1 text-xs text-slate-500">{log.detail}</p>}
+              <div className="divide-y divide-slate-200">
+                {activityLogs.length > 0 ? (
+                  activityLogs.map((log) => (
+                    <div key={log.id} className="px-5 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900">{log.user_name || '不明ユーザー'}</p>
+                        <p className="text-xs text-slate-500">{formatDateTime(log.created_at)}</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                      表示できるログがありません。
+                      <p className="mt-2 text-sm text-slate-700">{log.action} / {log.target_type}</p>
+                      {log.detail && <p className="mt-1 text-xs text-slate-500">{log.detail}</p>}
                     </div>
-                  )}
-                </div>
+                  ))
+                ) : (
+                  <div className="px-5 py-8 text-center text-sm text-slate-500">
+                    表示できるログがありません。
+                  </div>
+                )}
               </div>
             </div>
           </>
