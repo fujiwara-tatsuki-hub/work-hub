@@ -247,6 +247,21 @@ function getUserLabel(user: UserItem | undefined) {
   return user.name?.trim() || user.email?.trim() || '名称未設定'
 }
 
+function getActorLabel(
+  currentUserProfile: UserItem | undefined,
+  effectiveUserProfile: UserItem | undefined,
+  isProxyMode: boolean
+) {
+  const currentName = getUserLabel(currentUserProfile)
+  const effectiveName = getUserLabel(effectiveUserProfile)
+
+  if (isProxyMode) {
+    return `${currentName}（${effectiveName}として操作）`
+  }
+
+  return currentName
+}
+
 function SearchIcon() {
   return (
     <svg
@@ -701,6 +716,8 @@ export default function Home() {
   const [settingsDefaultView, setSettingsDefaultView] = useState<ViewKey>('dashboard')
   const [settingsNotificationEnabled, setSettingsNotificationEnabled] = useState(true)
   const [settingsMobileGroupedLayout, setSettingsMobileGroupedLayout] = useState(true)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  const [memberMenuOpen, setMemberMenuOpen] = useState(false)
 
   const currentUserId = user?.id ?? null
 
@@ -738,6 +755,10 @@ export default function Home() {
     }
   }, [activeView])
 
+  useEffect(() => {
+    setMemberMenuOpen(false)
+  }, [activeView])
+
   const currentUserProfile = useMemo(() => {
     return users.find((item) => item.id === currentUserId)
   }, [users, currentUserId])
@@ -745,6 +766,31 @@ export default function Home() {
   const isAdmin = useMemo(() => {
     return currentUserProfile?.role === 'admin'
   }, [currentUserProfile])
+
+  const effectiveUserId = isAdmin
+    ? selectedMemberId || currentUserId
+    : currentUserId
+
+  const effectiveUserProfile = useMemo(() => {
+    return users.find((item) => item.id === effectiveUserId)
+  }, [users, effectiveUserId])
+
+  const isProxyMode =
+    isAdmin && !!selectedMemberId && selectedMemberId !== currentUserId
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setSelectedMemberId(null)
+      return
+    }
+
+    if (!selectedMemberId) return
+
+    const exists = users.some((item) => item.id === selectedMemberId)
+    if (!exists) {
+      setSelectedMemberId(null)
+    }
+  }, [isAdmin, selectedMemberId, users])
 
   useEffect(() => {
     if (!currentUserId) return
@@ -833,7 +879,7 @@ export default function Home() {
   }
 
   const fetchRequests = async () => {
-    if (!currentUserId) {
+    if (!effectiveUserId) {
       setRequests([])
       return
     }
@@ -843,7 +889,7 @@ export default function Home() {
       .select(
         'id, title, content, sender_id, recipient_id, status, priority, deadline, created_at, completed_at, batch_id'
       )
-      .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
+      .or(`sender_id.eq.${effectiveUserId},recipient_id.eq.${effectiveUserId}`)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -937,6 +983,14 @@ export default function Home() {
     await Promise.all([fetchLinkGroups(), fetchLinks()])
   }
 
+  const handleSelectMember = (userId: string | null) => {
+    setSelectedMemberId(userId)
+    setMemberMenuOpen(false)
+    setCreateFormOpen(false)
+    setDetailTarget(null)
+    setEditingId(null)
+  }
+
   useEffect(() => {
     if (!currentUserId) {
       setRequests([])
@@ -950,7 +1004,7 @@ export default function Home() {
     fetchRequests()
     fetchLinkGroups()
     fetchLinks()
-  }, [currentUserId])
+  }, [currentUserId, effectiveUserId])
 
   useEffect(() => {
     if (!userSettings) return
@@ -966,12 +1020,18 @@ export default function Home() {
     return new Map(users.map((item) => [item.id, item]))
   }, [users])
 
+  const switchableMembers = useMemo(() => {
+    if (!isAdmin) return []
+
+    return users.filter((item) => item.is_active !== false)
+  }, [users, isAdmin])
+
   const receivedRequests = useMemo(() => {
-    return requests.filter((item) => item.recipient_id === currentUserId)
-  }, [requests, currentUserId])
+    return requests.filter((item) => item.recipient_id === effectiveUserId)
+  }, [requests, effectiveUserId])
 
   const sentRequests = useMemo(() => {
-    return requests.filter((item) => item.sender_id === currentUserId)
+    return requests.filter((item) => item.sender_id === effectiveUserId)
   }, [requests, currentUserId])
 
   const activeReceivedRequests = useMemo(() => {
@@ -1053,7 +1113,7 @@ export default function Home() {
 
   const filteredRecipientCandidates = useMemo(() => {
     const keyword = userSearch.trim().toLowerCase()
-    const candidates = users.filter((item) => item.id !== currentUserId)
+    const candidates = users.filter((item) => item.id !== effectiveUserId)
 
     if (!keyword) return candidates
 
@@ -1062,7 +1122,7 @@ export default function Home() {
       const email = item.email?.toLowerCase() ?? ''
       return name.includes(keyword) || email.includes(keyword)
     })
-  }, [users, currentUserId, userSearch])
+  }, [users, effectiveUserId, userSearch])
 
   const dashboardCounts = useMemo(() => {
     const overduePendingCount = receivedRequests.filter((item) => {
@@ -1303,7 +1363,7 @@ export default function Home() {
       const insertPayload = recipientIds.map((recipientId) => ({
         title: trimmedTitle,
         content: trimmedContent,
-        sender_id: currentUserId,
+        sender_id: effectiveUserId,
         recipient_id: recipientId,
         status,
         priority,
@@ -2233,7 +2293,7 @@ export default function Home() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {request.sender_id === currentUserId && (
+            {request.sender_id === effectiveUserId && (
               <>
                 {(request.status ?? '未確認') !== '完了' && (
                   <button
@@ -2284,7 +2344,7 @@ export default function Home() {
             )}
           </div>
 
-          {request.recipient_id === currentUserId &&
+          {request.recipient_id === effectiveUserId &&
             (request.status ?? '未確認') !== '完了' &&
             renderReceivedStatusSelect(request)}
         </div>
@@ -2390,7 +2450,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {request.sender_id === currentUserId && (
+                        {request.sender_id === effectiveUserId && (
                           <button
                             type="button"
                             onClick={() => handleDelete(request.id)}
@@ -2512,7 +2572,7 @@ export default function Home() {
 
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
             {(editingId
-              ? users.filter((item) => item.id !== currentUserId)
+              ? users.filter((item) => item.id !== effectiveUserId)
               : filteredRecipientCandidates
             ).map((item) => {
               const checked = recipientIds.includes(item.id)
@@ -3130,7 +3190,7 @@ export default function Home() {
         (historyRequests.length > 0 ? (
           <div className="grid gap-4">
             {historyRequests.map((request) =>
-              renderRequestCard(request, request.sender_id === currentUserId)
+              renderRequestCard(request, request.sender_id === effectiveUserId)
             )}
           </div>
         ) : (
@@ -4089,8 +4149,64 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm sm:block">
-                  {currentUserProfile?.name?.trim() || user.email}
+                <div className="relative hidden sm:block">
+                  <button
+                    type="button"
+                    onClick={() => isAdmin && setMemberMenuOpen((prev) => !prev)}
+                    className={cn(
+                      'inline-flex min-w-[140px] items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm',
+                      isAdmin ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'
+                    )}
+                  >
+                    <span className="truncate">
+                      {effectiveUserProfile?.name?.trim() || user.email}
+                    </span>
+                    {isAdmin && <ChevronDownIcon />}
+                  </button>
+
+                  {isAdmin && memberMenuOpen && (
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectMember(null)}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
+                          !selectedMemberId
+                            ? 'bg-slate-100 text-slate-900'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        )}
+                      >
+                        <span className="inline-flex w-5 justify-center">
+                          {!selectedMemberId ? '✓' : ''}
+                        </span>
+                        <span className="truncate">{getUserLabel(currentUserProfile)}</span>
+                      </button>
+
+                      {switchableMembers
+                        .filter((item) => item.id !== currentUserId)
+                        .map((item) => {
+                          const active = selectedMemberId === item.id
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSelectMember(item.id)}
+                              className={cn(
+                                'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
+                                active
+                                  ? 'bg-slate-100 text-slate-900'
+                                  : 'text-slate-700 hover:bg-slate-50'
+                              )}
+                            >
+                              <span className="inline-flex w-5 justify-center">
+                                {active ? '✓' : ''}
+                              </span>
+                              <span className="truncate">{getUserLabel(item)}</span>
+                            </button>
+                          )
+                        })}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -4107,6 +4223,24 @@ export default function Home() {
 
           <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-5">
+              {isProxyMode && (
+                <div className="flex items-center justify-between rounded-[24px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                  <p>
+                    <span className="font-semibold">
+                      {getUserLabel(effectiveUserProfile)}
+                    </span>
+                    の画面を表示中です。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectMember(null)}
+                    className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 transition hover:bg-blue-100"
+                  >
+                    自分に戻る
+                  </button>
+                </div>
+              )}
+
               {createFormOpen && renderCreateForm()}
 
               {!createFormOpen && activeView === 'dashboard' && renderDashboard()}
