@@ -1161,11 +1161,11 @@ export default function Home() {
       <div
         key={request.id}
         className={cn(
-          'rounded-[28px] p-4 transition sm:p-5',
+          'flex h-full min-h-[320px] flex-col rounded-[28px] p-4 transition sm:p-5',
           cardStyle.cardClassName
         )}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-slate-900">
@@ -1181,23 +1181,9 @@ export default function Home() {
               </span>
               {renderPriorityBadge(request.priority)}
             </div>
-
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-              {request.content}
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
-              <span>送信者：{senderName}</span>
-              {showRecipient && <span>共有先：{recipientName}</span>}
-              <span>期限：{formatDate(request.deadline)}</span>
-              <span>作成日：{formatDateTime(request.created_at)}</span>
-              {(request.status ?? '未確認') === '完了' && (
-                <span>完了日：{formatDateTime(request.completed_at)}</span>
-              )}
-            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 sm:pl-4">
+          <div className="flex shrink-0 items-center gap-2">
             {request.sender_id === currentUserId && (
               <>
                 {(request.status ?? '未確認') !== '完了' && (
@@ -1232,9 +1218,27 @@ export default function Home() {
           </div>
         </div>
 
-        {request.recipient_id === currentUserId &&
-          (request.status ?? '未確認') !== '完了' &&
-          renderReceivedStatusSelect(request)}
+        <div className="mt-3 flex-1">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {request.content}
+          </p>
+        </div>
+
+        <div className="mt-auto pt-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+            <span>送信者：{senderName}</span>
+            {showRecipient && <span>共有先：{recipientName}</span>}
+            <span>期限：{formatDate(request.deadline)}</span>
+            <span>作成日：{formatDateTime(request.created_at)}</span>
+            {(request.status ?? '未確認') === '完了' && (
+              <span>完了日：{formatDateTime(request.completed_at)}</span>
+            )}
+          </div>
+
+          {request.recipient_id === currentUserId &&
+            (request.status ?? '未確認') !== '完了' &&
+            renderReceivedStatusSelect(request)}
+        </div>
       </div>
     )
   }
@@ -1256,108 +1260,110 @@ export default function Home() {
     return (
       <div
         key={item.batchId}
-        className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+        className="flex h-full min-h-[320px] flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
       >
-        <div className="flex flex-col gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-slate-900">
-                {item.title}
-              </h3>
-              <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
-                同時送信 {item.requests.length}名
-              </span>
-              {renderPriorityBadge(item.priority)}
-            </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900">
+              {item.title}
+            </h3>
+            <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
+              同時送信 {item.requests.length}名
+            </span>
+            {renderPriorityBadge(item.priority)}
+          </div>
+        </div>
 
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-              {item.content}
+        <div className="mt-3 flex-1">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {item.content}
+          </p>
+        </div>
+
+        <div className="mt-auto pt-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+            <span>期限：{formatDate(item.deadline)}</span>
+            <span>作成日：{formatDateTime(item.created_at)}</span>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+            <p className="font-semibold text-slate-800">未確認者：</p>
+            <p className="mt-1 break-words">
+              {unresolvedNames.length > 0
+                ? unresolvedNames.join('、')
+                : '全員対応済み'}
             </p>
+          </div>
 
-            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
-              <span>期限：{formatDate(item.deadline)}</span>
-              <span>作成日：{formatDateTime(item.created_at)}</span>
-            </div>
+          <div className="mt-4 grid gap-3">
+            {item.requests
+              .slice()
+              .sort((a, b) => {
+                const statusA = a.status ?? '未確認'
+                const statusB = b.status ?? '未確認'
+                if (statusA === statusB) return 0
+                if (statusA === '未確認') return -1
+                if (statusB === '未確認') return 1
+                if (statusA === '対応中') return -1
+                if (statusB === '対応中') return 1
+                return 0
+              })
+              .map((request) => {
+                const recipientName = getUserLabel(
+                  request.recipient_id
+                    ? userMap.get(request.recipient_id)
+                    : undefined
+                )
+                const rowStyle = getRequestCardStyle(request)
 
-            <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
-              <p className="font-semibold text-slate-800">未確認者：</p>
-              <p className="mt-1 break-words">
-                {unresolvedNames.length > 0
-                  ? unresolvedNames.join('、')
-                  : '全員対応済み'}
-              </p>
-            </div>
-
-            <div className="mt-4 grid gap-3">
-              {item.requests
-                .slice()
-                .sort((a, b) => {
-                  const statusA = a.status ?? '未確認'
-                  const statusB = b.status ?? '未確認'
-                  if (statusA === statusB) return 0
-                  if (statusA === '未確認') return -1
-                  if (statusB === '未確認') return 1
-                  if (statusA === '対応中') return -1
-                  if (statusB === '対応中') return 1
-                  return 0
-                })
-                .map((request) => {
-                  const recipientName = getUserLabel(
-                    request.recipient_id
-                      ? userMap.get(request.recipient_id)
-                      : undefined
-                  )
-                  const rowStyle = getRequestCardStyle(request)
-
-                  return (
-                    <div
-                      key={request.id}
-                      className={cn(
-                        'rounded-2xl border px-4 py-3',
-                        rowStyle.cardClassName
-                      )}
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {recipientName}
-                            </p>
-                            <span
-                              className={cn(
-                                'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                                rowStyle.statusClassName
-                              )}
-                            >
-                              {getStatusLabel(request.status)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {request.sender_id === currentUserId && (
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(request.id)}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                              title="削除"
-                            >
-                              <TrashIcon />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setDetailTarget(request)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                            title="詳細"
+                return (
+                  <div
+                    key={request.id}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3',
+                      rowStyle.cardClassName
+                    )}
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">
+                            {recipientName}
+                          </p>
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                              rowStyle.statusClassName
+                            )}
                           >
-                            <EyeIcon />
-                          </button>
+                            {getStatusLabel(request.status)}
+                          </span>
                         </div>
                       </div>
+                      <div className="flex items-center gap-2">
+                        {request.sender_id === currentUserId && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(request.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                            title="削除"
+                          >
+                            <TrashIcon />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDetailTarget(request)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                          title="詳細"
+                        >
+                          <EyeIcon />
+                        </button>
+                      </div>
                     </div>
-                  )
-                })}
-            </div>
+                  </div>
+                )
+              })}
           </div>
         </div>
       </div>
