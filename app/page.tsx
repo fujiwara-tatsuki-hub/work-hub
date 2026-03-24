@@ -877,23 +877,23 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'flex h-full flex-col border-r border-slate-200 bg-slate-950 text-white',
+        'flex h-full flex-col border-r border-slate-200 bg-sky-100 text-slate-900',
         mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
       )}
     >
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+      <div className="flex items-center justify-between border-b border-sky-200 px-4 py-4">
         <div className={cn('min-w-0', desktopSidebarCollapsed && !mobile && 'hidden')}>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
             Work-Hub
           </p>
-          <h1 className="truncate text-lg font-semibold text-white">業務管理アプリ</h1>
+          <h1 className="truncate text-lg font-semibold text-slate-900">業務管理アプリ</h1>
         </div>
 
         {!mobile && (
           <button
             type="button"
             onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
           >
             {desktopSidebarCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
           </button>
@@ -903,30 +903,30 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(false)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
           >
             <CloseIcon />
           </button>
         )}
       </div>
 
-      <div className="border-b border-white/10 px-4 py-4">
+      <div className="border-b border-sky-200 px-4 py-4">
         <div
           className={cn(
-            'rounded-2xl border border-white/10 bg-white/5 p-4',
+            'rounded-2xl border border-sky-200 bg-white p-4',
             desktopSidebarCollapsed && !mobile && 'flex items-center justify-center p-3'
           )}
         >
           {desktopSidebarCollapsed && !mobile ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
               {(currentUserProfile?.name?.trim() || user?.email || 'U').slice(0, 1)}
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-sm font-semibold text-slate-900">
                 {currentUserProfile?.name?.trim() || 'ログイン中'}
               </p>
-              <p className="mt-1 truncate text-xs text-slate-300">
+              <p className="mt-1 truncate text-xs text-slate-600">
                 {user?.email || 'メール未取得'}
               </p>
             </>
@@ -948,8 +948,8 @@ export default function Home() {
               className={cn(
                 'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
                 active
-                  ? 'bg-white text-slate-950 shadow-sm'
-                  : 'text-slate-200 hover:bg-white/10',
+                  ? 'bg-white text-sky-800 shadow-sm ring-1 ring-inset ring-sky-200'
+                  : 'text-slate-700 hover:bg-white/80',
                 desktopSidebarCollapsed && !mobile && 'justify-center px-0'
               )}
             >
@@ -960,13 +960,13 @@ export default function Home() {
         })}
       </nav>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t border-sky-200 p-3">
         {user ? (
           <button
             type="button"
             onClick={handleLogout}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-sky-700',
               desktopSidebarCollapsed && !mobile ? 'px-0' : ''
             )}
           >
@@ -978,7 +978,7 @@ export default function Home() {
             type="button"
             onClick={handleLogin}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-sky-700',
               desktopSidebarCollapsed && !mobile ? 'px-0' : ''
             )}
           >
@@ -1038,16 +1038,18 @@ export default function Home() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:pl-4">
-            {request.sender_id === currentUserId && (request.status ?? '未確認') !== '完了' && (
+            {request.sender_id === currentUserId && (
               <>
-                <button
-                  type="button"
-                  onClick={() => handleStartEdit(request)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                  title="編集"
-                >
-                  <EditIcon />
-                </button>
+                {(request.status ?? '未確認') !== '完了' && (
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(request)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                    title="編集"
+                  >
+                    <EditIcon />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleDelete(request.id)}
@@ -1080,7 +1082,7 @@ export default function Home() {
                 className={cn(
                   'rounded-full px-3 py-1.5 text-xs font-semibold transition',
                   (request.status ?? '未確認') === item
-                    ? 'bg-slate-900 text-white'
+                    ? 'bg-sky-600 text-white'
                     : 'bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
                 )}
               >
@@ -1122,7 +1124,7 @@ export default function Home() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
-              <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
+              <span className="inline-flex items-center rounded-full bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white">
                 同時送信 {item.requests.length}名
               </span>
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -1179,17 +1181,16 @@ export default function Home() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {request.sender_id === currentUserId &&
-                            (request.status ?? '未確認') !== '完了' && (
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(request.id)}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                                title="削除"
-                              >
-                                <TrashIcon />
-                              </button>
-                            )}
+                          {request.sender_id === currentUserId && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(request.id)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                              title="削除"
+                            >
+                              <TrashIcon />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setDetailTarget(request)}
@@ -1402,7 +1403,7 @@ export default function Home() {
             type="button"
             onClick={handleCreateRequest}
             disabled={submitting}
-            className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex h-11 items-center rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {submitting ? '保存中...' : editingId ? '更新する' : '保存する'}
           </button>
@@ -1437,19 +1438,52 @@ export default function Home() {
         </div>
       </a>
 
-      <div className="rounded-[28px] border border-red-200 bg-red-50/80 p-5 shadow-sm">
+      <div
+        className={cn(
+          'rounded-[28px] p-5 shadow-sm',
+          dashboardCounts.overduePendingCount > 0
+            ? 'border border-red-200 bg-red-50/80'
+            : 'border border-slate-200 bg-white'
+        )}
+      >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-red-700">期限切れ・要対応</p>
-            <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-200">
+            <p
+              className={cn(
+                'text-sm font-semibold',
+                dashboardCounts.overduePendingCount > 0 ? 'text-red-700' : 'text-slate-500'
+              )}
+            >
+              期限切れ・要対応
+            </p>
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                dashboardCounts.overduePendingCount > 0
+                  ? 'bg-white/80 text-red-700 ring-1 ring-inset ring-red-200'
+                  : 'bg-slate-100 text-slate-700'
+              )}
+            >
               優先確認
             </span>
           </div>
           <div className="mt-4 flex-1">
-            <p className="text-4xl font-bold tracking-tight text-red-700">
+            <p
+              className={cn(
+                'text-4xl font-bold tracking-tight',
+                dashboardCounts.overduePendingCount > 0 ? 'text-red-700' : 'text-slate-900'
+              )}
+            >
               {dashboardCounts.overduePendingCount}
             </p>
-            <p className="mt-2 text-sm leading-6 text-red-700/80">
+            <p
+              className={cn(
+                'mt-2 text-sm leading-6',
+                dashboardCounts.overduePendingCount > 0
+                  ? 'text-red-700/80'
+                  : 'text-slate-600'
+              )}
+            >
               期限切れで未完了の依頼件数です。
             </p>
           </div>
@@ -1544,7 +1578,7 @@ export default function Home() {
                 setCreateFormOpen((prev) => !prev)
                 setActiveView('dashboard')
               }}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+              className="flex w-full items-center justify-between rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-800 transition hover:bg-sky-100"
             >
               <span>新規依頼を追加</span>
               <PlusIcon />
@@ -1620,7 +1654,7 @@ export default function Home() {
             resetForm()
             setCreateFormOpen(true)
           }}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
         >
           <PlusIcon />
           新規依頼
@@ -1655,7 +1689,7 @@ export default function Home() {
             resetForm()
             setCreateFormOpen(true)
           }}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
         >
           <PlusIcon />
           新規依頼
@@ -1734,7 +1768,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleLogin}
-            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
           >
             <LoginIcon />
             Googleでログイン
