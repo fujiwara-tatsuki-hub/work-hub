@@ -626,6 +626,15 @@ export default function Home() {
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
   const [selectedLinkGroupId, setSelectedLinkGroupId] = useState<string | null>(null)
 
+  const [editingLinkGroupTarget, setEditingLinkGroupTarget] = useState<LinkGroupItem | null>(null)
+  const [editLinkGroupName, setEditLinkGroupName] = useState('')
+  const [editLinkGroupParentId, setEditLinkGroupParentId] = useState('')
+
+  const [editingLinkTarget, setEditingLinkTarget] = useState<LinkItem | null>(null)
+  const [editLinkTitle, setEditLinkTitle] = useState('')
+  const [editLinkUrl, setEditLinkUrl] = useState('')
+  const [editLinkGroupId, setEditLinkGroupId] = useState('')
+
   const currentUserId = user?.id ?? null
 
   useEffect(() => {
@@ -1015,6 +1024,19 @@ export default function Home() {
     setNewLinkGroupId('')
   }
 
+  const closeLinkGroupEditModal = () => {
+    setEditingLinkGroupTarget(null)
+    setEditLinkGroupName('')
+    setEditLinkGroupParentId('')
+  }
+
+  const closeLinkEditModal = () => {
+    setEditingLinkTarget(null)
+    setEditLinkTitle('')
+    setEditLinkUrl('')
+    setEditLinkGroupId('')
+  }
+
   const handleToggleRecipient = (id: string) => {
     setRecipientIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -1238,58 +1260,58 @@ export default function Home() {
     setLinkSubmitting(false)
   }
 
-  const handleEditLinkGroup = async (group: LinkGroupItem) => {
+  const handleEditLinkGroup = (group: LinkGroupItem) => {
     if (!isAdmin) return
 
-    const nextName = window.prompt('グループ名を入力してください。', group.name)?.trim()
-    if (!nextName) return
+    setEditingLinkGroupTarget(group)
+    setEditLinkGroupName(group.name)
+    setEditLinkGroupParentId(group.parent_id ?? '')
+  }
 
-    let nextParentId = group.parent_id
+  const handleSaveLinkGroupEdit = async () => {
+    if (!isAdmin || !editingLinkGroupTarget) return
 
-    if (group.parent_id) {
-      const parentOptions = rootLinkGroups
-        .map((parent, index) => `${index + 1}. ${parent.name}`)
-        .join('\n')
+    const trimmedName = editLinkGroupName.trim()
+    if (!trimmedName) {
+      alert('グループ名を入力してください。')
+      return
+    }
 
-      const currentParent = rootLinkGroups.find(
-        (parent) => parent.id === group.parent_id
-      )
+    const updatePayload: {
+      name: string
+      parent_id?: string | null
+      sort_order?: number
+    } = {
+      name: trimmedName,
+    }
 
-      const parentInput = window.prompt(
-        `親グループを番号で選択してください。\n\n現在：${currentParent?.name ?? '未設定'}\n\n${parentOptions}`,
-        String(
-          Math.max(
-            1,
-            rootLinkGroups.findIndex((parent) => parent.id === group.parent_id) +
-              1
-          )
-        )
-      )
-
-      if (parentInput === null) return
-
-      const parentIndex = Number(parentInput)
-      if (
-        !Number.isInteger(parentIndex) ||
-        parentIndex < 1 ||
-        parentIndex > rootLinkGroups.length
-      ) {
-        alert('親グループの番号が不正です。')
+    if (editingLinkGroupTarget.parent_id) {
+      if (!editLinkGroupParentId) {
+        alert('親グループを選択してください。')
         return
       }
 
-      nextParentId = rootLinkGroups[parentIndex - 1]?.id ?? group.parent_id
-    }
+      updatePayload.parent_id = editLinkGroupParentId
 
-    if (nextName === group.name && nextParentId === group.parent_id) return
+      if (editLinkGroupParentId !== editingLinkGroupTarget.parent_id) {
+        const siblingChildGroups = linkGroups.filter(
+          (group) =>
+            group.parent_id === editLinkGroupParentId &&
+            group.id !== editingLinkGroupTarget.id
+        )
+        const maxSortOrder =
+          siblingChildGroups.length > 0
+            ? Math.max(...siblingChildGroups.map((group) => group.sort_order))
+            : -1
+
+        updatePayload.sort_order = maxSortOrder + 1
+      }
+    }
 
     const { error } = await supabase
       .from('link_groups')
-      .update({
-        name: nextName,
-        parent_id: nextParentId,
-      })
-      .eq('id', group.id)
+      .update(updatePayload)
+      .eq('id', editingLinkGroupTarget.id)
 
     if (error) {
       console.error('グループ編集エラー:', error)
@@ -1297,6 +1319,7 @@ export default function Home() {
       return
     }
 
+    closeLinkGroupEditModal()
     await refreshLinksData()
   }
 
@@ -1355,50 +1378,34 @@ export default function Home() {
     await refreshLinksData()
   }
 
-  const handleEditLink = async (link: LinkItem) => {
+  const handleEditLink = (link: LinkItem) => {
     if (!isAdmin) return
 
-    const nextTitle = window.prompt('リンク名を入力してください。', link.title)?.trim()
-    if (!nextTitle) return
+    setEditingLinkTarget(link)
+    setEditLinkTitle(link.title)
+    setEditLinkUrl(link.url)
+    setEditLinkGroupId(link.group_id ?? '')
+  }
 
-    const nextUrl = window.prompt('URLを入力してください。', link.url)?.trim()
-    if (!nextUrl) return
+  const handleSaveLinkEdit = async () => {
+    if (!isAdmin || !editingLinkTarget) return
 
-    const groupOptions = [
-      '0. 未分類',
-      ...allGroupOptions.map((group, index) => `${index + 1}. ${group.label}`),
-    ].join('\n')
+    const trimmedTitle = editLinkTitle.trim()
+    const trimmedUrl = editLinkUrl.trim()
 
-    const currentGroupIndex = allGroupOptions.findIndex(
-      (group) => group.id === (link.group_id ?? '')
-    )
-
-    const groupInput = window.prompt(
-      `所属グループを番号で選択してください。\n\n現在：${
-        allGroupOptions[currentGroupIndex]?.label ?? '未分類'
-      }\n\n${groupOptions}`,
-      currentGroupIndex >= 0 ? String(currentGroupIndex + 1) : '0'
-    )
-
-    if (groupInput === null) return
-
-    const selectedIndex = Number(groupInput)
-    if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex > allGroupOptions.length) {
-      alert('所属グループの番号が不正です。')
+    if (!trimmedTitle || !trimmedUrl) {
+      alert('リンク名とURLを入力してください。')
       return
     }
-
-    const nextGroupId =
-      selectedIndex === 0 ? null : allGroupOptions[selectedIndex - 1]?.id ?? null
 
     const { error } = await supabase
       .from('links')
       .update({
-        title: nextTitle,
-        url: nextUrl,
-        group_id: nextGroupId,
+        title: trimmedTitle,
+        url: trimmedUrl,
+        group_id: editLinkGroupId || null,
       })
-      .eq('id', link.id)
+      .eq('id', editingLinkTarget.id)
 
     if (error) {
       console.error('リンク編集エラー:', error)
@@ -1406,6 +1413,7 @@ export default function Home() {
       return
     }
 
+    closeLinkEditModal()
     await refreshLinksData()
   }
 
@@ -2905,6 +2913,162 @@ export default function Home() {
   }
 
 
+  const renderLinkGroupEditModal = () => {
+    if (!editingLinkGroupTarget) return null
+
+    const isChildGroup = !!editingLinkGroupTarget.parent_id
+
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
+        <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">{isChildGroup ? '子グループを編集' : 'グループを編集'}</h3>
+              <p className="mt-1 text-sm text-slate-500">必要な項目を修正して保存してください</p>
+            </div>
+            <button
+              type="button"
+              onClick={closeLinkGroupEditModal}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              title="閉じる"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">グループ名</label>
+              <input
+                value={editLinkGroupName}
+                onChange={(event) => setEditLinkGroupName(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                placeholder="グループ名を入力"
+              />
+            </div>
+
+            {isChildGroup && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">親グループ</label>
+                <select
+                  value={editLinkGroupParentId}
+                  onChange={(event) => setEditLinkGroupParentId(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="">選択してください</option>
+                  {rootLinkGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeLinkGroupEditModal}
+              className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveLinkGroupEdit}
+              className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              保存する
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderLinkEditModal = () => {
+    if (!editingLinkTarget) return null
+
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
+        <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">リンクを編集</h3>
+              <p className="mt-1 text-sm text-slate-500">リンク名・URL・所属グループを変更できます</p>
+            </div>
+            <button
+              type="button"
+              onClick={closeLinkEditModal}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              title="閉じる"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">リンク名</label>
+              <input
+                value={editLinkTitle}
+                onChange={(event) => setEditLinkTitle(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                placeholder="リンク名を入力"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">URL</label>
+              <input
+                value={editLinkUrl}
+                onChange={(event) => setEditLinkUrl(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">所属グループ</label>
+              <select
+                value={editLinkGroupId}
+                onChange={(event) => setEditLinkGroupId(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="">未分類</option>
+                {allGroupOptions.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={closeLinkEditModal}
+              className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveLinkEdit}
+              className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              保存する
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -3014,6 +3178,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {renderLinkGroupEditModal()}
+      {renderLinkEditModal()}
 
       {detailTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
