@@ -22,29 +22,6 @@ type UserItem = {
   email: string | null
   name: string | null
   role: string | null
-  last_login_at?: string | null
-  is_active?: boolean | null
-}
-
-type UserSettingsItem = {
-  id: string
-  user_id: string
-  default_view: 'dashboard' | 'received' | 'sent' | 'history' | 'links'
-  notification_enabled: boolean
-  mobile_grouped_layout: boolean
-  created_at: string
-  updated_at: string
-}
-
-type ActivityLogItem = {
-  id: string
-  user_id: string | null
-  user_name: string | null
-  action: string
-  target_type: string
-  target_id: string | null
-  detail: string | null
-  created_at: string
 }
 
 type LinkGroupItem = {
@@ -66,7 +43,7 @@ type LinkItem = {
   updated_at: string
 }
 
-type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links' | 'settings'
+type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links'
 
 type SentDisplayItem =
   | {
@@ -245,21 +222,6 @@ function sortActiveRequests(requests: RequestItem[]) {
 function getUserLabel(user: UserItem | undefined) {
   if (!user) return '未設定ユーザー'
   return user.name?.trim() || user.email?.trim() || '名称未設定'
-}
-
-function getActorLabel(
-  currentUserProfile: UserItem | undefined,
-  effectiveUserProfile: UserItem | undefined,
-  isProxyMode: boolean
-) {
-  const currentName = getUserLabel(currentUserProfile)
-  const effectiveName = getUserLabel(effectiveUserProfile)
-
-  if (isProxyMode) {
-    return `${currentName}（${effectiveName}として操作）`
-  }
-
-  return currentName
 }
 
 function SearchIcon() {
@@ -474,24 +436,6 @@ function ChevronRightIcon() {
   )
 }
 
-function ChevronUpIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 15 6-6 6 6" />
-    </svg>
-  )
-}
-
 function DashboardIcon() {
   return (
     <svg
@@ -590,25 +534,6 @@ function LinkListIcon() {
   )
 }
 
-function SettingsIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.91 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.36.58.93.94 1.6 1H21a2 2 0 1 1 0 4h-.09c-.67.06-1.24.42-1.51 1Z" />
-    </svg>
-  )
-}
-
 function DotAlertIcon() {
   return (
     <svg
@@ -670,12 +595,9 @@ export default function Home() {
   const [users, setUsers] = useState<UserItem[]>([])
   const [linkGroups, setLinkGroups] = useState<LinkGroupItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
-  const [userSettings, setUserSettings] = useState<UserSettingsItem | null>(null)
-  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [linkSubmitting, setLinkSubmitting] = useState(false)
-  const [settingsSubmitting, setSettingsSubmitting] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkCreateOpen, setLinkCreateOpen] = useState(false)
@@ -702,22 +624,6 @@ export default function Home() {
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
-  const [selectedLinkGroupId, setSelectedLinkGroupId] = useState<string | null>(null)
-
-  const [editingLinkGroupTarget, setEditingLinkGroupTarget] = useState<LinkGroupItem | null>(null)
-  const [editLinkGroupName, setEditLinkGroupName] = useState('')
-  const [editLinkGroupParentId, setEditLinkGroupParentId] = useState('')
-
-  const [editingLinkTarget, setEditingLinkTarget] = useState<LinkItem | null>(null)
-  const [editLinkTitle, setEditLinkTitle] = useState('')
-  const [editLinkUrl, setEditLinkUrl] = useState('')
-  const [editLinkGroupId, setEditLinkGroupId] = useState('')
-
-  const [settingsDefaultView, setSettingsDefaultView] = useState<ViewKey>('dashboard')
-  const [settingsNotificationEnabled, setSettingsNotificationEnabled] = useState(true)
-  const [settingsMobileGroupedLayout, setSettingsMobileGroupedLayout] = useState(true)
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const [memberMenuOpen, setMemberMenuOpen] = useState(false)
 
   const currentUserId = user?.id ?? null
 
@@ -749,79 +655,6 @@ export default function Home() {
     }
   }, [activeView])
 
-  useEffect(() => {
-    if (activeView !== 'links') {
-      setSelectedLinkGroupId(null)
-    }
-  }, [activeView])
-
-  useEffect(() => {
-    setMemberMenuOpen(false)
-  }, [activeView])
-
-  const currentUserProfile = useMemo(() => {
-    return users.find((item) => item.id === currentUserId)
-  }, [users, currentUserId])
-
-  const isAdmin = useMemo(() => {
-    return currentUserProfile?.role === 'admin'
-  }, [currentUserProfile])
-
-  const effectiveUserId = isAdmin
-    ? selectedMemberId || currentUserId
-    : currentUserId
-
-  const effectiveUserProfile = useMemo(() => {
-    return users.find((item) => item.id === effectiveUserId)
-  }, [users, effectiveUserId])
-
-  const isProxyMode =
-    isAdmin && !!selectedMemberId && selectedMemberId !== currentUserId
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setSelectedMemberId(null)
-      return
-    }
-
-    if (!selectedMemberId) return
-
-    const exists = users.some((item) => item.id === selectedMemberId)
-    if (!exists) {
-      setSelectedMemberId(null)
-    }
-  }, [isAdmin, selectedMemberId, users])
-
-  useEffect(() => {
-    if (!currentUserId) return
-
-    fetchUserSettings()
-  }, [currentUserId])
-
-  useEffect(() => {
-    if (!currentUserId) return
-
-    const syncLastLoginAt = async () => {
-      const { error } = await supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', currentUserId)
-
-      if (error) {
-        console.warn('last_login_at更新スキップ:', error.message)
-        return
-      }
-
-      fetchUsers()
-    }
-
-    syncLastLoginAt()
-  }, [currentUserId])
-
-  useEffect(() => {
-    fetchActivityLogs()
-  }, [currentUserId, isAdmin])
-
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -838,36 +671,10 @@ export default function Home() {
     await supabase.auth.signOut()
   }
 
-  const logActivity = async (
-    action: string,
-    targetType: string,
-    targetId: string | null,
-    detail: string
-  ) => {
-    if (!currentUserId) return
-
-    const { error } = await supabase.from('activity_logs').insert({
-      user_id: currentUserId,
-      user_name:
-        currentUserProfile?.name ||
-        currentUserProfile?.email ||
-        user?.email ||
-        '不明ユーザー',
-      action,
-      target_type: targetType,
-      target_id: targetId,
-      detail,
-    })
-
-    if (error) {
-      console.error('activity_logs記録エラー:', error)
-    }
-  }
-
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, last_login_at, is_active')
+      .select('id, email, name, role')
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -879,7 +686,7 @@ export default function Home() {
   }
 
   const fetchRequests = async () => {
-    if (!effectiveUserId) {
+    if (!currentUserId) {
       setRequests([])
       return
     }
@@ -889,7 +696,7 @@ export default function Home() {
       .select(
         'id, title, content, sender_id, recipient_id, status, priority, deadline, created_at, completed_at, batch_id'
       )
-      .or(`sender_id.eq.${effectiveUserId},recipient_id.eq.${effectiveUserId}`)
+      .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -899,29 +706,6 @@ export default function Home() {
 
     setRequests((data as RequestItem[]) ?? [])
   }
-
-  useEffect(() => {
-    if (!currentUserId || !effectiveUserId) return
-
-    const channel = supabase
-      .channel(`requests-realtime-${currentUserId}-${effectiveUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requests',
-        },
-        async () => {
-          await fetchRequests()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [currentUserId, effectiveUserId])
 
   const fetchLinkGroups = async () => {
     const { data, error } = await supabase
@@ -953,65 +737,8 @@ export default function Home() {
     setLinks((data as LinkItem[]) ?? [])
   }
 
-  const fetchUserSettings = async () => {
-    if (!currentUserId) {
-      setUserSettings(null)
-      return
-    }
-
-    const { data, error } = await supabase
-      .from('user_settings')
-      .select(
-        'id, user_id, default_view, notification_enabled, mobile_grouped_layout, created_at, updated_at'
-      )
-      .eq('user_id', currentUserId)
-      .maybeSingle()
-
-    if (error) {
-      console.error('user_settings取得エラー:', error)
-      return
-    }
-
-    const next = (data as UserSettingsItem | null) ?? null
-    setUserSettings(next)
-
-    if (next) {
-      setSettingsDefaultView(next.default_view)
-      setSettingsNotificationEnabled(next.notification_enabled)
-      setSettingsMobileGroupedLayout(next.mobile_grouped_layout)
-    }
-  }
-
-  const fetchActivityLogs = async () => {
-    if (!currentUserId || !isAdmin) {
-      setActivityLogs([])
-      return
-    }
-
-    const { data, error } = await supabase
-      .from('activity_logs')
-      .select('id, user_id, user_name, action, target_type, target_id, detail, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (error) {
-      console.error('activity_logs取得エラー:', error)
-      return
-    }
-
-    setActivityLogs((data as ActivityLogItem[]) ?? [])
-  }
-
   const refreshLinksData = async () => {
     await Promise.all([fetchLinkGroups(), fetchLinks()])
-  }
-
-  const handleSelectMember = (userId: string | null) => {
-    setSelectedMemberId(userId)
-    setMemberMenuOpen(false)
-    setCreateFormOpen(false)
-    setDetailTarget(null)
-    setEditingId(null)
   }
 
   useEffect(() => {
@@ -1027,34 +754,49 @@ export default function Home() {
     fetchRequests()
     fetchLinkGroups()
     fetchLinks()
-  }, [currentUserId, effectiveUserId])
+  }, [currentUserId])
 
   useEffect(() => {
-    if (!userSettings) return
-    if (activeView !== 'dashboard') return
+    if (!currentUserId) return
 
-    const nextDefaultView = userSettings.default_view
-    if (nextDefaultView && nextDefaultView !== 'dashboard') {
-      setActiveView(nextDefaultView)
+    const channel = supabase
+      .channel(`requests-realtime-${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requests',
+        },
+        async () => {
+          await fetchRequests()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-  }, [userSettings])
+  }, [currentUserId])
+
+  const currentUserProfile = useMemo(() => {
+    return users.find((item) => item.id === currentUserId)
+  }, [users, currentUserId])
+
+  const isAdmin = useMemo(() => {
+    return currentUserProfile?.role === 'admin'
+  }, [currentUserProfile])
 
   const userMap = useMemo(() => {
     return new Map(users.map((item) => [item.id, item]))
   }, [users])
 
-  const switchableMembers = useMemo(() => {
-    if (!isAdmin) return []
-
-    return users.filter((item) => item.is_active !== false)
-  }, [users, isAdmin])
-
   const receivedRequests = useMemo(() => {
-    return requests.filter((item) => item.recipient_id === effectiveUserId)
-  }, [requests, effectiveUserId])
+    return requests.filter((item) => item.recipient_id === currentUserId)
+  }, [requests, currentUserId])
 
   const sentRequests = useMemo(() => {
-    return requests.filter((item) => item.sender_id === effectiveUserId)
+    return requests.filter((item) => item.sender_id === currentUserId)
   }, [requests, currentUserId])
 
   const activeReceivedRequests = useMemo(() => {
@@ -1136,7 +878,7 @@ export default function Home() {
 
   const filteredRecipientCandidates = useMemo(() => {
     const keyword = userSearch.trim().toLowerCase()
-    const candidates = users.filter((item) => item.id !== effectiveUserId)
+    const candidates = users.filter((item) => item.id !== currentUserId)
 
     if (!keyword) return candidates
 
@@ -1145,7 +887,7 @@ export default function Home() {
       const email = item.email?.toLowerCase() ?? ''
       return name.includes(keyword) || email.includes(keyword)
     })
-  }, [users, effectiveUserId, userSearch])
+  }, [users, currentUserId, userSearch])
 
   const dashboardCounts = useMemo(() => {
     const overduePendingCount = receivedRequests.filter((item) => {
@@ -1289,19 +1031,6 @@ export default function Home() {
     setNewLinkGroupId('')
   }
 
-  const closeLinkGroupEditModal = () => {
-    setEditingLinkGroupTarget(null)
-    setEditLinkGroupName('')
-    setEditLinkGroupParentId('')
-  }
-
-  const closeLinkEditModal = () => {
-    setEditingLinkTarget(null)
-    setEditLinkTitle('')
-    setEditLinkUrl('')
-    setEditLinkGroupId('')
-  }
-
   const handleToggleRecipient = (id: string) => {
     setRecipientIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -1364,13 +1093,6 @@ export default function Home() {
           return
         }
 
-        await logActivity(
-          'request_updated',
-          'request',
-          editingId,
-          `${trimmedTitle} を更新`
-        )
-
         resetForm()
         setCreateFormOpen(false)
         setSubmitting(false)
@@ -1386,7 +1108,7 @@ export default function Home() {
       const insertPayload = recipientIds.map((recipientId) => ({
         title: trimmedTitle,
         content: trimmedContent,
-        sender_id: effectiveUserId,
+        sender_id: currentUserId,
         recipient_id: recipientId,
         status,
         priority,
@@ -1402,13 +1124,6 @@ export default function Home() {
         setSubmitting(false)
         return
       }
-
-      await logActivity(
-        'request_created',
-        'request',
-        null,
-        `${trimmedTitle} を作成（${recipientIds.length}名に送信）`
-      )
 
       resetForm()
       setCreateFormOpen(false)
@@ -1449,13 +1164,6 @@ export default function Home() {
       setLinkSubmitting(false)
       return
     }
-
-    await logActivity(
-      'link_group_created',
-      'link_group',
-      null,
-      `親グループ ${trimmed} を作成`
-    )
 
     setNewParentGroupName('')
     await refreshLinksData()
@@ -1499,13 +1207,6 @@ export default function Home() {
       return
     }
 
-    await logActivity(
-      'link_group_created',
-      'link_group',
-      null,
-      `子グループ ${trimmed} を作成`
-    )
-
     setNewChildGroupName('')
     await refreshLinksData()
     setLinkSubmitting(false)
@@ -1546,344 +1247,11 @@ export default function Home() {
       return
     }
 
-    await logActivity(
-      'link_created',
-      'link',
-      null,
-      `${trimmedTitle} を作成`
-    )
-
     setNewLinkTitle('')
     setNewLinkUrl('')
     setNewLinkGroupId('')
     await refreshLinksData()
     setLinkSubmitting(false)
-  }
-
-  const handleEditLinkGroup = (group: LinkGroupItem) => {
-    if (!isAdmin) return
-
-    setEditingLinkGroupTarget(group)
-    setEditLinkGroupName(group.name)
-    setEditLinkGroupParentId(group.parent_id ?? '')
-  }
-
-  const handleSaveLinkGroupEdit = async () => {
-    if (!isAdmin || !editingLinkGroupTarget) return
-
-    const trimmedName = editLinkGroupName.trim()
-    if (!trimmedName) {
-      alert('グループ名を入力してください。')
-      return
-    }
-
-    const updatePayload: {
-      name: string
-      parent_id?: string | null
-      sort_order?: number
-    } = {
-      name: trimmedName,
-    }
-
-    if (editingLinkGroupTarget.parent_id) {
-      if (!editLinkGroupParentId) {
-        alert('親グループを選択してください。')
-        return
-      }
-
-      updatePayload.parent_id = editLinkGroupParentId
-
-      if (editLinkGroupParentId !== editingLinkGroupTarget.parent_id) {
-        const siblingChildGroups = linkGroups.filter(
-          (group) =>
-            group.parent_id === editLinkGroupParentId &&
-            group.id !== editingLinkGroupTarget.id
-        )
-        const maxSortOrder =
-          siblingChildGroups.length > 0
-            ? Math.max(...siblingChildGroups.map((group) => group.sort_order))
-            : -1
-
-        updatePayload.sort_order = maxSortOrder + 1
-      }
-    }
-
-    const { error } = await supabase
-      .from('link_groups')
-      .update(updatePayload)
-      .eq('id', editingLinkGroupTarget.id)
-
-    if (error) {
-      console.error('グループ編集エラー:', error)
-      alert('グループの更新に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'link_group_updated',
-      'link_group',
-      editingLinkGroupTarget.id,
-      `${editingLinkGroupTarget.name} を ${trimmedName} に更新`
-    )
-
-    closeLinkGroupEditModal()
-    await refreshLinksData()
-  }
-
-  const handleDeleteLinkGroup = async (group: LinkGroupItem) => {
-    if (!isAdmin) return
-
-    const childGroups = linkGroups.filter((item) => item.parent_id === group.id)
-    const targetGroupIds = [group.id, ...childGroups.map((item) => item.id)]
-
-    const confirmed = window.confirm(
-      childGroups.length > 0
-        ? 'この親グループを削除すると、子グループと配下リンクも削除されます。削除しますか？'
-        : 'このグループと配下リンクを削除しますか？'
-    )
-    if (!confirmed) return
-
-    const { error: linksError } = await supabase
-      .from('links')
-      .delete()
-      .in('group_id', targetGroupIds)
-
-    if (linksError) {
-      console.error('リンク削除エラー:', linksError)
-      alert('グループ配下のリンク削除に失敗しました。')
-      return
-    }
-
-    if (childGroups.length > 0) {
-      const { error: childError } = await supabase
-        .from('link_groups')
-        .delete()
-        .in('id', childGroups.map((item) => item.id))
-
-      if (childError) {
-        console.error('子グループ削除エラー:', childError)
-        alert('子グループの削除に失敗しました。')
-        return
-      }
-    }
-
-    const { error } = await supabase
-      .from('link_groups')
-      .delete()
-      .eq('id', group.id)
-
-    if (error) {
-      console.error('グループ削除エラー:', error)
-      alert('グループの削除に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'link_group_deleted',
-      'link_group',
-      group.id,
-      `${group.name} を削除`
-    )
-
-    if (selectedLinkGroupId === group.id) {
-      setSelectedLinkGroupId(null)
-    }
-
-    await refreshLinksData()
-  }
-
-  const handleEditLink = (link: LinkItem) => {
-    if (!isAdmin) return
-
-    setEditingLinkTarget(link)
-    setEditLinkTitle(link.title)
-    setEditLinkUrl(link.url)
-    setEditLinkGroupId(link.group_id ?? '')
-  }
-
-  const handleSaveLinkEdit = async () => {
-    if (!isAdmin || !editingLinkTarget) return
-
-    const trimmedTitle = editLinkTitle.trim()
-    const trimmedUrl = editLinkUrl.trim()
-
-    if (!trimmedTitle || !trimmedUrl) {
-      alert('リンク名とURLを入力してください。')
-      return
-    }
-
-    const nextGroupId = editLinkGroupId || null
-    const updatePayload: {
-      title: string
-      url: string
-      group_id: string | null
-      sort_order?: number
-    } = {
-      title: trimmedTitle,
-      url: trimmedUrl,
-      group_id: nextGroupId,
-    }
-
-    if ((editingLinkTarget.group_id ?? null) !== nextGroupId) {
-      const siblingLinks = links.filter(
-        (link) =>
-          (link.group_id ?? null) === nextGroupId &&
-          link.id !== editingLinkTarget.id
-      )
-      const maxSortOrder =
-        siblingLinks.length > 0
-          ? Math.max(...siblingLinks.map((link) => link.sort_order))
-          : -1
-
-      updatePayload.sort_order = maxSortOrder + 1
-    }
-
-    const { error } = await supabase
-      .from('links')
-      .update(updatePayload)
-      .eq('id', editingLinkTarget.id)
-
-    if (error) {
-      console.error('リンク編集エラー:', error)
-      alert('リンクの更新に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'link_updated',
-      'link',
-      editingLinkTarget.id,
-      `${editingLinkTarget.title} を ${trimmedTitle} に更新`
-    )
-
-    closeLinkEditModal()
-    await refreshLinksData()
-  }
-
-  const swapLinkGroupSortOrder = async (
-    currentGroup: LinkGroupItem,
-    targetGroup: LinkGroupItem
-  ) => {
-    const currentSortOrder = currentGroup.sort_order
-    const targetSortOrder = targetGroup.sort_order
-
-    const [{ error: currentError }, { error: targetError }] = await Promise.all([
-      supabase
-        .from('link_groups')
-        .update({ sort_order: targetSortOrder })
-        .eq('id', currentGroup.id),
-      supabase
-        .from('link_groups')
-        .update({ sort_order: currentSortOrder })
-        .eq('id', targetGroup.id),
-    ])
-
-    if (currentError || targetError) {
-      console.error('グループ並び替えエラー:', currentError ?? targetError)
-      alert('グループの並び替えに失敗しました。')
-      return
-    }
-
-    await refreshLinksData()
-  }
-
-  const handleMoveRootLinkGroup = async (
-    group: LinkGroupItem,
-    direction: 'up' | 'down'
-  ) => {
-    if (!isAdmin) return
-
-    const currentIndex = rootLinkGroups.findIndex((item) => item.id === group.id)
-    if (currentIndex === -1) return
-
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    const targetGroup = rootLinkGroups[targetIndex]
-    if (!targetGroup) return
-
-    await swapLinkGroupSortOrder(group, targetGroup)
-  }
-
-  const handleMoveChildLinkGroup = async (
-    group: LinkGroupItem,
-    direction: 'up' | 'down'
-  ) => {
-    if (!isAdmin || !group.parent_id) return
-
-    const siblings = childGroupsMap.get(group.parent_id) ?? []
-    const currentIndex = siblings.findIndex((item) => item.id === group.id)
-    if (currentIndex === -1) return
-
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    const targetGroup = siblings[targetIndex]
-    if (!targetGroup) return
-
-    await swapLinkGroupSortOrder(group, targetGroup)
-  }
-
-  const swapLinkSortOrder = async (currentLink: LinkItem, targetLink: LinkItem) => {
-    const currentSortOrder = currentLink.sort_order
-    const targetSortOrder = targetLink.sort_order
-
-    const [{ error: currentError }, { error: targetError }] = await Promise.all([
-      supabase
-        .from('links')
-        .update({ sort_order: targetSortOrder })
-        .eq('id', currentLink.id),
-      supabase
-        .from('links')
-        .update({ sort_order: currentSortOrder })
-        .eq('id', targetLink.id),
-    ])
-
-    if (currentError || targetError) {
-      console.error('リンク並び替えエラー:', currentError ?? targetError)
-      alert('リンクの並び替えに失敗しました。')
-      return
-    }
-
-    await refreshLinksData()
-  }
-
-  const handleMoveLink = async (link: LinkItem, direction: 'up' | 'down') => {
-    if (!isAdmin) return
-
-    const siblings = link.group_id
-      ? linksByGroupId.get(link.group_id) ?? []
-      : ungroupedLinks
-
-    const currentIndex = siblings.findIndex((item) => item.id === link.id)
-    if (currentIndex === -1) return
-
-    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    const targetLink = siblings[targetIndex]
-    if (!targetLink) return
-
-    await swapLinkSortOrder(link, targetLink)
-  }
-
-  const handleDeleteLink = async (linkId: string) => {
-    if (!isAdmin) return
-
-    const targetLink = links.find((item) => item.id === linkId)
-    const confirmed = window.confirm('このリンクを削除しますか？')
-    if (!confirmed) return
-
-    const { error } = await supabase.from('links').delete().eq('id', linkId)
-
-    if (error) {
-      console.error('リンク削除エラー:', error)
-      alert('リンクの削除に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'link_deleted',
-      'link',
-      linkId,
-      targetLink ? `${targetLink.title} を削除` : 'リンクを削除'
-    )
-
-    await refreshLinksData()
   }
 
   const handleStartEdit = (request: RequestItem) => {
@@ -1903,8 +1271,6 @@ export default function Home() {
     const confirmed = window.confirm('この依頼を削除しますか？')
     if (!confirmed) return
 
-    const targetRequest = requests.find((item) => item.id === requestId)
-
     const { error } = await supabase
       .from('requests')
       .delete()
@@ -1915,13 +1281,6 @@ export default function Home() {
       alert('削除に失敗しました。')
       return
     }
-
-    await logActivity(
-      'request_deleted',
-      'request',
-      requestId,
-      targetRequest ? `${targetRequest.title} を削除` : '依頼を削除'
-    )
 
     fetchRequests()
   }
@@ -1951,134 +1310,7 @@ export default function Home() {
       return
     }
 
-    await logActivity(
-      'request_status_updated',
-      'request',
-      requestId,
-      `ステータスを${nextStatus}に変更`
-    )
-
     fetchRequests()
-  }
-
-  const handleSaveUserSettings = async () => {
-    if (!currentUserId) return
-
-    setSettingsSubmitting(true)
-
-    const payload = {
-      user_id: currentUserId,
-      default_view: settingsDefaultView === 'settings' ? 'dashboard' : settingsDefaultView,
-      notification_enabled: settingsNotificationEnabled,
-      mobile_grouped_layout: settingsMobileGroupedLayout,
-    }
-
-    const { error } = await supabase
-      .from('user_settings')
-      .upsert(payload, { onConflict: 'user_id' })
-
-    if (error) {
-      console.error('user_settings保存エラー:', error)
-      alert('設定の保存に失敗しました。')
-      setSettingsSubmitting(false)
-      return
-    }
-
-    await fetchUserSettings()
-    setSettingsSubmitting(false)
-    alert('設定を保存しました。')
-  }
-
-  const handleRoleChange = async (targetUserId: string, nextRole: string) => {
-    if (!isAdmin) return
-
-    const { error } = await supabase
-      .from('users')
-      .update({ role: nextRole })
-      .eq('id', targetUserId)
-
-    if (error) {
-      console.error('ロール変更エラー:', error)
-      alert('ロール変更に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'role_updated',
-      'user',
-      targetUserId,
-      `roleを${nextRole}に変更`
-    )
-
-    fetchUsers()
-    fetchActivityLogs()
-  }
-
-  const handleToggleUserActive = async (targetUserId: string, nextValue: boolean) => {
-    if (!isAdmin) return
-
-    const { error } = await supabase
-      .from('users')
-      .update({ is_active: nextValue })
-      .eq('id', targetUserId)
-
-    if (error) {
-      console.error('アカウント状態変更エラー:', error)
-      alert('アカウント状態の更新に失敗しました。')
-      return
-    }
-
-    await logActivity(
-      'user_status_updated',
-      'user',
-      targetUserId,
-      nextValue ? '再開' : '停止'
-    )
-
-    fetchUsers()
-    fetchActivityLogs()
-  }
-
-  const handleDeleteUser = async (targetUser: UserItem) => {
-    if (!isAdmin) return
-
-    if (targetUser.id === currentUserId) {
-      alert('自分自身のアカウントは削除できません。')
-      return
-    }
-
-    if (targetUser.is_active !== false) {
-      alert('削除する前に、先に対象ユーザーを停止してください。')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `${getUserLabel(targetUser)} を削除しますか?
-
-この操作を行うと、アカウント管理一覧から対象ユーザーが消えます。`
-    )
-    if (!confirmed) return
-
-    await logActivity(
-      'user_deleted',
-      'user',
-      targetUser.id,
-      `${getUserLabel(targetUser)} を削除`
-    )
-
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', targetUser.id)
-
-    if (error) {
-      console.error('ユーザー削除エラー:', error)
-      alert('ユーザー削除に失敗しました。')
-      return
-    }
-
-    fetchUsers()
-    fetchActivityLogs()
   }
 
   const menuItems: Array<{
@@ -2091,7 +1323,6 @@ export default function Home() {
     { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
     { key: 'history', label: '履歴', icon: <HistoryIcon /> },
     { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
-    { key: 'settings', label: '設定', icon: <SettingsIcon /> },
   ]
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -2168,7 +1399,7 @@ export default function Home() {
                 {user?.email || 'メール未取得'}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                権限：{isAdmin ? '管理者' : 'パートナー'}
+                権限：{isAdmin ? '管理者' : '一般ユーザー'}
               </p>
             </>
           )}
@@ -2316,7 +1547,7 @@ export default function Home() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
-            {request.sender_id === effectiveUserId && (
+            {request.sender_id === currentUserId && (
               <>
                 {(request.status ?? '未確認') !== '完了' && (
                   <button
@@ -2367,7 +1598,7 @@ export default function Home() {
             )}
           </div>
 
-          {request.recipient_id === effectiveUserId &&
+          {request.recipient_id === currentUserId &&
             (request.status ?? '未確認') !== '完了' &&
             renderReceivedStatusSelect(request)}
         </div>
@@ -2473,7 +1704,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {request.sender_id === effectiveUserId && (
+                        {request.sender_id === currentUserId && (
                           <button
                             type="button"
                             onClick={() => handleDelete(request.id)}
@@ -2595,7 +1826,7 @@ export default function Home() {
 
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
             {(editingId
-              ? users.filter((item) => item.id !== effectiveUserId)
+              ? users.filter((item) => item.id !== currentUserId)
               : filteredRecipientCandidates
             ).map((item) => {
               const checked = recipientIds.includes(item.id)
@@ -2709,7 +1940,29 @@ export default function Home() {
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-lg font-semibold text-slate-900">新規作成</p>
+            <p className="mt-1 text-sm text-slate-500">
+              親グループ・子グループ・リンクを追加できます
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLinkCreateOpen((prev) => !prev)
+              if (linkCreateOpen) resetLinkCreateForm()
+            }}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+            {linkCreateOpen ? '閉じる' : '新規追加を開く'}
+          </button>
+        </div>
+
+        {linkCreateOpen && (
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
             <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
               <p className="text-base font-semibold text-slate-900">
                 親グループ作成
@@ -2848,6 +2101,7 @@ export default function Home() {
               </button>
             </div>
           </div>
+        )}
       </div>
     )
   }
@@ -3213,7 +2467,7 @@ export default function Home() {
         (historyRequests.length > 0 ? (
           <div className="grid gap-4">
             {historyRequests.map((request) =>
-              renderRequestCard(request, request.sender_id === effectiveUserId)
+              renderRequestCard(request, request.sender_id === currentUserId)
             )}
           </div>
         ) : (
@@ -3224,873 +2478,220 @@ export default function Home() {
     </div>
   )
 
-  const renderMoveButtons = ({
-    onMoveUp,
-    onMoveDown,
-    disableUp,
-    disableDown,
-  }: {
-    onMoveUp: () => void
-    onMoveDown: () => void
-    disableUp: boolean
-    disableDown: boolean
-  }) => (
-    <div className="flex shrink-0 items-center gap-2">
-      <button
-        type="button"
-        onClick={onMoveUp}
-        disabled={disableUp}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        title="上へ"
-      >
-        <ChevronUpIcon />
-      </button>
-      <button
-        type="button"
-        onClick={onMoveDown}
-        disabled={disableDown}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        title="下へ"
-      >
-        <ChevronDownIcon />
-      </button>
-    </div>
-  )
+  const renderLinkCard = (group: LinkGroupItem) => {
+    const ownLinks = linksByGroupId.get(group.id) ?? []
+    const childGroups = childGroupsMap.get(group.id) ?? []
+    const visibleChildGroups = childGroups.filter((child) => {
+      const childLinks = linksByGroupId.get(child.id) ?? []
+      return childLinks.length > 0
+    })
 
-  const renderLinkRow = (
-    link: LinkItem,
-    options?: {
-      disableMoveUp?: boolean
-      disableMoveDown?: boolean
-    }
-  ) => (
-    <div
-      key={link.id}
-      className="flex items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:bg-slate-50"
-    >
-      <a
-        href={link.url}
-        target="_blank"
-        rel="noreferrer"
-        className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 hover:text-blue-600"
+    return (
+      <div
+        key={group.id}
+        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm"
       >
-        {link.title}
-      </a>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-lg font-semibold text-slate-900">{group.name}</p>
+            <p className="mt-1 text-xs text-slate-500">親グループ</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {ownLinks.length +
+              visibleChildGroups.reduce((sum, child) => {
+                const childLinks = linksByGroupId.get(child.id) ?? []
+                return sum + childLinks.length
+              }, 0)}{' '}
+            件
+          </span>
+        </div>
 
-      {isAdmin && (
-        <div className="flex shrink-0 items-center gap-2">
-          {renderMoveButtons({
-            onMoveUp: () => handleMoveLink(link, 'up'),
-            onMoveDown: () => handleMoveLink(link, 'down'),
-            disableUp: options?.disableMoveUp ?? false,
-            disableDown: options?.disableMoveDown ?? false,
-          })}
-          <button
-            type="button"
-            onClick={() => handleEditLink(link)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-            title="編集"
+        {ownLinks.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-semibold text-slate-800">
+              このグループのリンク
+            </p>
+            <div className="space-y-2">
+              {ownLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">
+                      {link.title}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {link.url}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-slate-500">
+                    <ExternalLinkIcon />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {visibleChildGroups.length > 0 && (
+          <div className="mt-5 space-y-4">
+            {visibleChildGroups.map((child) => {
+              const childLinks = linksByGroupId.get(child.id) ?? []
+
+              return (
+                <div
+                  key={child.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {child.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        子グループ
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                      {childLinks.length}件
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {childLinks.map((link) => (
+                      <a
+                        key={link.id}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900">
+                            {link.title}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {link.url}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-slate-500">
+                          <ExternalLinkIcon />
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderLinks = () => (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">リンク一覧</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            全員共通のリンクをグループ単位で表示します
+          </p>
+        </div>
+
+        <div className="w-full max-w-md">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <SearchIcon />
+            </span>
+            <input
+              value={linkSearch}
+              onChange={(event) => setLinkSearch(event.target.value)}
+              placeholder="タイトルで検索"
+              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              権限について
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              閲覧は全員可能。追加機能は管理者のみ使えます。
+            </p>
+          </div>
+          <span
+            className={cn(
+              'rounded-full px-3 py-1 text-xs font-semibold',
+              isAdmin
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-slate-100 text-slate-700'
+            )}
           >
-            <EditIcon />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDeleteLink(link.id)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-            title="削除"
-          >
-            <TrashIcon />
-          </button>
+            {isAdmin ? '管理者でログイン中' : '一般ユーザーでログイン中'}
+          </span>
+        </div>
+      </div>
+
+      {renderAdminLinkCreatePanel()}
+
+      {visibleRootGroups.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {visibleRootGroups.map((group) => renderLinkCard(group))}
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+          該当するリンクがありません。
+        </div>
+      )}
+
+      {ungroupedLinks.length > 0 && (
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-slate-900">その他</p>
+              <p className="mt-1 text-xs text-slate-500">未分類のリンク</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              {ungroupedLinks.length}件
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {ungroupedLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-900">
+                    {link.title}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {link.url}
+                  </p>
+                </div>
+                <span className="shrink-0 text-slate-500">
+                  <ExternalLinkIcon />
+                </span>
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </div>
   )
-
-  const renderLinks = () => {
-    if (!selectedLinkGroupId) {
-      return (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900">リンク一覧</h2>
-            </div>
-
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-              <div className="w-full sm:w-[320px]">
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    <SearchIcon />
-                  </span>
-                  <input
-                    value={linkSearch}
-                    onChange={(event) => setLinkSearch(event.target.value)}
-                    placeholder="タイトルで検索"
-                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
-                  />
-                </div>
-              </div>
-
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLinkCreateOpen((prev) => !prev)
-                    if (linkCreateOpen) resetLinkCreateForm()
-                  }}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
-                  {linkCreateOpen ? '閉じる' : '追加'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {isAdmin && linkCreateOpen && renderAdminLinkCreatePanel()}
-
-          {visibleRootGroups.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {visibleRootGroups.map((group, index) => (
-                <div
-                  key={group.id}
-                  className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLinkGroupId(group.id)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
-                          <LinkListIcon />
-                        </span>
-                        <p className="truncate text-base font-semibold text-slate-900">
-                          {group.name}
-                        </p>
-                      </div>
-                    </button>
-
-                    {isAdmin && (
-                      <div className="flex shrink-0 items-center gap-2">
-                        {renderMoveButtons({
-                          onMoveUp: () => handleMoveRootLinkGroup(group, 'up'),
-                          onMoveDown: () => handleMoveRootLinkGroup(group, 'down'),
-                          disableUp: index === 0,
-                          disableDown: index === visibleRootGroups.length - 1,
-                        })}
-                        <button
-                          type="button"
-                          onClick={() => handleEditLinkGroup(group)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                          title="編集"
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteLinkGroup(group)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                          title="削除"
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-              該当するリンクがありません。
-            </div>
-          )}
-
-          {ungroupedLinks.length > 0 && (
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-base font-semibold text-slate-900">その他</p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {ungroupedLinks.map((link, index) =>
-                  renderLinkRow(link, {
-                    disableMoveUp: index === 0,
-                    disableMoveDown: index === ungroupedLinks.length - 1,
-                  })
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    const selectedGroup = linkGroups.find((group) => group.id === selectedLinkGroupId)
-    const selectedChildGroups = childGroupsMap.get(selectedLinkGroupId) ?? []
-    const selectedOwnLinks = linksByGroupId.get(selectedLinkGroupId) ?? []
-
-    if (!selectedGroup) {
-      return (
-        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          グループが見つかりません。
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <button
-              type="button"
-              onClick={() => setSelectedLinkGroupId(null)}
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
-            >
-              <span>←</span>
-              <span>戻る</span>
-            </button>
-            <h2 className="mt-3 text-xl font-semibold text-slate-900">
-              {selectedGroup.name}
-            </h2>
-          </div>
-
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
-            <div className="w-full sm:w-[320px]">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <SearchIcon />
-                </span>
-                <input
-                  value={linkSearch}
-                  onChange={(event) => setLinkSearch(event.target.value)}
-                  placeholder="タイトルで検索"
-                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
-                />
-              </div>
-            </div>
-
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                {renderMoveButtons({
-                  onMoveUp: () => handleMoveRootLinkGroup(selectedGroup, 'up'),
-                  onMoveDown: () => handleMoveRootLinkGroup(selectedGroup, 'down'),
-                  disableUp:
-                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
-                  disableDown:
-                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) ===
-                    rootLinkGroups.length - 1,
-                })}
-                <button
-                  type="button"
-                  onClick={() => handleEditLinkGroup(selectedGroup)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                  title="編集"
-                >
-                  <EditIcon />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteLinkGroup(selectedGroup)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                  title="削除"
-                >
-                  <TrashIcon />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {isAdmin && linkCreateOpen && renderAdminLinkCreatePanel()}
-
-        {selectedOwnLinks.length > 0 && (
-          <div className="space-y-2">
-            {selectedOwnLinks.map((link, index) =>
-              renderLinkRow(link, {
-                disableMoveUp: index === 0,
-                disableMoveDown: index === selectedOwnLinks.length - 1,
-              })
-            )}
-          </div>
-        )}
-
-        {selectedChildGroups.map((child, childIndex) => {
-          const childLinks = linksByGroupId.get(child.id) ?? []
-          if (childLinks.length === 0) return null
-
-          return (
-            <div
-              key={child.id}
-              className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-            >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="truncate text-base font-semibold text-slate-900">
-                  {child.name}
-                </p>
-
-                {isAdmin && (
-                  <div className="flex shrink-0 items-center gap-2">
-                    {renderMoveButtons({
-                      onMoveUp: () => handleMoveChildLinkGroup(child, 'up'),
-                      onMoveDown: () => handleMoveChildLinkGroup(child, 'down'),
-                      disableUp: childIndex === 0,
-                      disableDown: childIndex === selectedChildGroups.length - 1,
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => handleEditLinkGroup(child)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                      title="編集"
-                    >
-                      <EditIcon />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteLinkGroup(child)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                      title="削除"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {childLinks.map((link, linkIndex) =>
-                  renderLinkRow(link, {
-                    disableMoveUp: linkIndex === 0,
-                    disableMoveDown: linkIndex === childLinks.length - 1,
-                  })
-                )}
-              </div>
-            </div>
-          )
-        })}
-
-        {selectedOwnLinks.length === 0 &&
-          selectedChildGroups.every((child) => (linksByGroupId.get(child.id) ?? []).length === 0) && (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-              該当するリンクがありません。
-            </div>
-          )}
-      </div>
-    )
-  }
-
-
-  const renderLinkGroupEditModal = () => {
-    if (!editingLinkGroupTarget) return null
-
-    const isChildGroup = !!editingLinkGroupTarget.parent_id
-
-    return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
-        <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">{isChildGroup ? '子グループを編集' : 'グループを編集'}</h3>
-              <p className="mt-1 text-sm text-slate-500">必要な項目を修正して保存してください</p>
-            </div>
-            <button
-              type="button"
-              onClick={closeLinkGroupEditModal}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-              title="閉じる"
-            >
-              <CloseIcon />
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">グループ名</label>
-              <input
-                value={editLinkGroupName}
-                onChange={(event) => setEditLinkGroupName(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                placeholder="グループ名を入力"
-              />
-            </div>
-
-            {isChildGroup && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">親グループ</label>
-                <select
-                  value={editLinkGroupParentId}
-                  onChange={(event) => setEditLinkGroupParentId(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                >
-                  <option value="">選択してください</option>
-                  {rootLinkGroups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={closeLinkGroupEditModal}
-              className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              キャンセル
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveLinkGroupEdit}
-              className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              保存する
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const renderLinkEditModal = () => {
-    if (!editingLinkTarget) return null
-
-    return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
-        <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">リンクを編集</h3>
-              <p className="mt-1 text-sm text-slate-500">リンク名・URL・所属グループを変更できます</p>
-            </div>
-            <button
-              type="button"
-              onClick={closeLinkEditModal}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-              title="閉じる"
-            >
-              <CloseIcon />
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">リンク名</label>
-              <input
-                value={editLinkTitle}
-                onChange={(event) => setEditLinkTitle(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                placeholder="リンク名を入力"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">URL</label>
-              <input
-                value={editLinkUrl}
-                onChange={(event) => setEditLinkUrl(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">所属グループ</label>
-              <select
-                value={editLinkGroupId}
-                onChange={(event) => setEditLinkGroupId(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-              >
-                <option value="">未分類</option>
-                {allGroupOptions.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={closeLinkEditModal}
-              className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              キャンセル
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveLinkEdit}
-              className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              保存する
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-
-
-  const renderSettings = () => {
-    const activeUsersCount = users.filter((item) => item.is_active !== false).length
-    const adminUsersCount = users.filter((item) => item.role === 'admin').length
-
-    return (
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">設定</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {isAdmin
-                ? 'アカウント管理・管理設定・操作履歴を確認できます'
-                : 'アカウント情報と表示設定を確認できます'}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <LogoutIcon />
-            ログアウト
-          </button>
-        </div>
-
-        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
-            <p className="text-base font-semibold text-slate-900">アカウント情報</p>
-          </div>
-          <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="border-b border-slate-200 px-5 py-4 xl:border-b-0 xl:border-r">
-              <p className="text-xs font-medium text-slate-500">名前</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{currentUserProfile?.name || '未設定'}</p>
-            </div>
-            <div className="border-b border-slate-200 px-5 py-4 sm:border-l-0 xl:border-b-0 xl:border-r">
-              <p className="text-xs font-medium text-slate-500">メール</p>
-              <p className="mt-1 break-all text-sm font-semibold text-slate-900">{currentUserProfile?.email || user?.email || '未取得'}</p>
-            </div>
-            <div className="border-b border-slate-200 px-5 py-4 xl:border-b-0 xl:border-r">
-              <p className="text-xs font-medium text-slate-500">権限</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{isAdmin ? '管理者' : 'パートナー'}</p>
-            </div>
-            <div className="px-5 py-4">
-              <p className="text-xs font-medium text-slate-500">最終ログイン</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatDateTime(currentUserProfile?.last_login_at)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-5 py-4">
-            <p className="text-base font-semibold text-slate-900">表示設定</p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 px-5 py-5 xl:grid-cols-3">
-            <div className="xl:col-span-1">
-              <label className="mb-2 block text-sm font-medium text-slate-700">初期表示画面</label>
-              <select
-                value={settingsDefaultView}
-                onChange={(event) => setSettingsDefaultView(event.target.value as ViewKey)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
-              >
-                <option value="dashboard">ダッシュボード</option>
-                <option value="received">受信依頼</option>
-                <option value="sent">送信依頼</option>
-                <option value="history">履歴</option>
-                <option value="links">リンク一覧</option>
-              </select>
-            </div>
-
-            <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">スマホでグループ単位表示</p>
-                <p className="mt-1 text-xs text-slate-500">リンク一覧を縦並びで見やすく表示します</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settingsMobileGroupedLayout}
-                onChange={(event) => setSettingsMobileGroupedLayout(event.target.checked)}
-                className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-              />
-            </label>
-
-            {isAdmin ? (
-              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">通知表示</p>
-                  <p className="mt-1 text-xs text-slate-500">未確認・期限切れを画面内で強調表示します</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settingsNotificationEnabled}
-                  onChange={(event) => setSettingsNotificationEnabled(event.target.checked)}
-                  className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                />
-              </label>
-            ) : (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 xl:col-span-1">
-                <p className="text-sm font-semibold text-slate-900">通知設定</p>
-                <p className="mt-1 text-xs text-slate-500">通知設定は管理者のみ変更できます。</p>
-              </div>
-            )}
-          </div>
-          <div className="border-t border-slate-200 px-5 py-4">
-            <button
-              type="button"
-              onClick={handleSaveUserSettings}
-              disabled={settingsSubmitting}
-              className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 sm:w-auto sm:min-w-[180px]"
-            >
-              {settingsSubmitting ? '保存中...' : '設定を保存する'}
-            </button>
-          </div>
-        </div>
-
-        {isAdmin && (
-          <>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_0.8fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">アカウント管理</p>
-                    <p className="mt-1 text-sm text-slate-500">ロール変更・停止 / 再開・削除を行えます</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                    {users.length}名
-                  </span>
-                </div>
-
-                <div className="hidden xl:block">
-                  <div className="grid grid-cols-[1.5fr_1.9fr_0.9fr_1fr_1.3fr_1.7fr] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-500">
-                    <p>名前</p>
-                    <p>メール</p>
-                    <p>ロール</p>
-                    <p>アカウント状態</p>
-                    <p>最終ログイン</p>
-                    <p>操作</p>
-                  </div>
-
-                  <div className="divide-y divide-slate-200">
-                    {users.map((item) => (
-                      <div key={item.id} className="grid grid-cols-[1.5fr_1.9fr_0.9fr_1fr_1.3fr_1.7fr] gap-3 px-5 py-4 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">{getUserLabel(item)}</p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-slate-600">{item.email || 'メール未設定'}</p>
-                        </div>
-                        <div>
-                          <select
-                            value={item.role ?? 'user'}
-                            onChange={(event) => handleRoleChange(item.id, event.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400"
-                          >
-                            <option value="admin">管理者</option>
-                            <option value="user">パートナー</option>
-                          </select>
-                        </div>
-                        <div>
-                          <span
-                            className={cn(
-                              'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
-                              item.is_active === false
-                                ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200'
-                                : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                            )}
-                          >
-                            {item.is_active === false ? '停止中' : '有効'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-slate-600">{formatDateTime(item.last_login_at)}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleUserActive(item.id, item.is_active === false)}
-                            disabled={item.id === currentUserId}
-                            className={cn(
-                              'inline-flex h-11 min-w-[76px] items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400',
-                              item.is_active === false
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                                : 'bg-slate-900 text-white hover:bg-slate-800'
-                            )}
-                          >
-                            {item.is_active === false ? '再開' : '停止'}
-                          </button>
-
-                          {item.is_active === false && item.id !== currentUserId && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteUser(item)}
-                              className="inline-flex h-11 min-w-[76px] items-center justify-center rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-500"
-                            >
-                              削除
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="divide-y divide-slate-200 xl:hidden">
-                  {users.map((item) => (
-                    <div key={item.id} className="px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
-                          <p className="mt-1 break-all text-xs text-slate-500">{item.email || 'メール未設定'}</p>
-                        </div>
-                        <span
-                          className={cn(
-                            'shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold',
-                            item.is_active === false
-                              ? 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200'
-                              : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
-                          )}
-                        >
-                          {item.is_active === false ? '停止中' : '有効'}
-                        </span>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">ロール</label>
-                          <select
-                            value={item.role ?? 'user'}
-                            onChange={(event) => handleRoleChange(item.id, event.target.value)}
-                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-slate-400"
-                          >
-                            <option value="admin">管理者</option>
-                            <option value="user">パートナー</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">最終ログイン</label>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                            {formatDateTime(item.last_login_at)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleUserActive(item.id, item.is_active === false)}
-                          disabled={item.id === currentUserId}
-                          className={cn(
-                            'inline-flex h-11 flex-1 items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400',
-                            item.is_active === false
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                              : 'bg-slate-900 text-white hover:bg-slate-800'
-                          )}
-                        >
-                          {item.is_active === false ? '再開' : '停止'}
-                        </button>
-
-                        {item.is_active === false && item.id !== currentUserId && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteUser(item)}
-                            className="inline-flex h-11 flex-1 items-center justify-center rounded-2xl bg-red-600 px-4 text-sm font-semibold text-white transition hover:bg-red-500"
-                          >
-                            削除
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-200 px-5 py-4">
-                    <p className="text-base font-semibold text-slate-900">利用状況確認</p>
-                  </div>
-                  <div className="grid grid-cols-1 divide-y divide-slate-200">
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-slate-500">全ユーザー数</p>
-                      <p className="mt-1 text-2xl font-bold text-slate-900">{users.length}</p>
-                    </div>
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-slate-500">有効ユーザー数</p>
-                      <p className="mt-1 text-2xl font-bold text-slate-900">{activeUsersCount}</p>
-                    </div>
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-slate-500">管理者数</p>
-                      <p className="mt-1 text-2xl font-bold text-slate-900">{adminUsersCount}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-200 px-5 py-4">
-                    <p className="text-base font-semibold text-slate-900">最終ログイン確認</p>
-                  </div>
-                  <div className="divide-y divide-slate-200">
-                    {users.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-4">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
-                          <p className="mt-1 text-xs text-slate-500">{item.role === 'admin' ? '管理者' : 'パートナー'}</p>
-                        </div>
-                        <p className="shrink-0 text-xs font-medium text-slate-600">{formatDateTime(item.last_login_at)}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-                <div>
-                  <p className="text-base font-semibold text-slate-900">アクティビティログ確認</p>
-                  <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={fetchActivityLogs}
-                  className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  更新
-                </button>
-              </div>
-
-              <div className="divide-y divide-slate-200">
-                {activityLogs.length > 0 ? (
-                  activityLogs.map((log) => (
-                    <div key={log.id} className="px-5 py-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{log.user_name || '不明ユーザー'}</p>
-                        <p className="text-xs text-slate-500">{formatDateTime(log.created_at)}</p>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-700">{log.action} / {log.target_type}</p>
-                      {log.detail && <p className="mt-1 text-xs text-slate-500">{log.detail}</p>}
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-5 py-8 text-center text-sm text-slate-500">
-                    表示できるログがありません。
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -4172,64 +2773,8 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="relative hidden sm:block">
-                  <button
-                    type="button"
-                    onClick={() => isAdmin && setMemberMenuOpen((prev) => !prev)}
-                    className={cn(
-                      'inline-flex min-w-[140px] items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm',
-                      isAdmin ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'
-                    )}
-                  >
-                    <span className="truncate">
-                      {effectiveUserProfile?.name?.trim() || user.email}
-                    </span>
-                    {isAdmin && <ChevronDownIcon />}
-                  </button>
-
-                  {isAdmin && memberMenuOpen && (
-                    <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 rounded-[24px] border border-slate-200 bg-white p-2 shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
-                      <button
-                        type="button"
-                        onClick={() => handleSelectMember(null)}
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
-                          !selectedMemberId
-                            ? 'bg-slate-100 text-slate-900'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        )}
-                      >
-                        <span className="inline-flex w-5 justify-center">
-                          {!selectedMemberId ? '✓' : ''}
-                        </span>
-                        <span className="truncate">{getUserLabel(currentUserProfile)}</span>
-                      </button>
-
-                      {switchableMembers
-                        .filter((item) => item.id !== currentUserId)
-                        .map((item) => {
-                          const active = selectedMemberId === item.id
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleSelectMember(item.id)}
-                              className={cn(
-                                'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
-                                active
-                                  ? 'bg-slate-100 text-slate-900'
-                                  : 'text-slate-700 hover:bg-slate-50'
-                              )}
-                            >
-                              <span className="inline-flex w-5 justify-center">
-                                {active ? '✓' : ''}
-                              </span>
-                              <span className="truncate">{getUserLabel(item)}</span>
-                            </button>
-                          )
-                        })}
-                    </div>
-                  )}
+                <div className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm sm:block">
+                  {currentUserProfile?.name?.trim() || user.email}
                 </div>
 
                 <button
@@ -4246,24 +2791,6 @@ export default function Home() {
 
           <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-5">
-              {isProxyMode && (
-                <div className="flex items-center justify-between rounded-[24px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                  <p>
-                    <span className="font-semibold">
-                      {getUserLabel(effectiveUserProfile)}
-                    </span>
-                    の画面を表示中です。
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMember(null)}
-                    className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200 transition hover:bg-blue-100"
-                  >
-                    自分に戻る
-                  </button>
-                </div>
-              )}
-
               {createFormOpen && renderCreateForm()}
 
               {!createFormOpen && activeView === 'dashboard' && renderDashboard()}
@@ -4271,14 +2798,10 @@ export default function Home() {
               {!createFormOpen && activeView === 'sent' && renderSent()}
               {!createFormOpen && activeView === 'history' && renderHistory()}
               {!createFormOpen && activeView === 'links' && renderLinks()}
-              {!createFormOpen && activeView === 'settings' && renderSettings()}
             </div>
           </div>
         </div>
       </div>
-
-      {renderLinkGroupEditModal()}
-      {renderLinkEditModal()}
 
       {detailTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
