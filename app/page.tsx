@@ -57,17 +57,18 @@ const STATUS_META: Record<
   }
 > = {
   未確認: {
-    label: '未確認',
+    label: '未完了',
     className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
   },
   対応中: {
-    label: '対応中',
+    label: '保留中',
     className:
       'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
   },
   完了: {
     label: '完了',
-    className: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+    className:
+      'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
   },
 }
 
@@ -106,6 +107,11 @@ function isOverdue(deadline: string | null | undefined) {
   const due = new Date(deadline)
   due.setHours(0, 0, 0, 0)
   return due < today
+}
+
+function getStatusLabel(status: string | null | undefined) {
+  const key = status ?? '未確認'
+  return STATUS_META[key]?.label ?? key
 }
 
 function getRequestCardStyle(request: RequestItem) {
@@ -156,11 +162,17 @@ function sortActiveRequests(requests: RequestItem[]) {
     const rankDiff = rank(a) - rank(b)
     if (rankDiff !== 0) return rankDiff
 
-    const deadlineA = a.deadline ? new Date(a.deadline).getTime() : Number.MAX_SAFE_INTEGER
-    const deadlineB = b.deadline ? new Date(b.deadline).getTime() : Number.MAX_SAFE_INTEGER
+    const deadlineA = a.deadline
+      ? new Date(a.deadline).getTime()
+      : Number.MAX_SAFE_INTEGER
+    const deadlineB = b.deadline
+      ? new Date(b.deadline).getTime()
+      : Number.MAX_SAFE_INTEGER
     if (deadlineA !== deadlineB) return deadlineA - deadlineB
 
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return (
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
   })
 }
 
@@ -470,7 +482,8 @@ export default function Home() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false)
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] =
+    useState(false)
   const [userSearch, setUserSearch] = useState('')
 
   const [title, setTitle] = useState('')
@@ -507,11 +520,20 @@ export default function Home() {
     }
   }, [])
 
+  useEffect(() => {
+    if (activeView === 'history') {
+      setHistoryOpen(true)
+    }
+  }, [activeView])
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        redirectTo:
+          typeof window !== 'undefined'
+            ? window.location.origin
+            : undefined,
       },
     })
   }
@@ -593,17 +615,25 @@ export default function Home() {
     return requests
       .filter((item) => (item.status ?? '未確認') === '完了')
       .sort((a, b) => {
-        const completedA = a.completed_at ? new Date(a.completed_at).getTime() : 0
-        const completedB = b.completed_at ? new Date(b.completed_at).getTime() : 0
+        const completedA = a.completed_at
+          ? new Date(a.completed_at).getTime()
+          : 0
+        const completedB = b.completed_at
+          ? new Date(b.completed_at).getTime()
+          : 0
         return completedB - completedA
       })
   }, [requests])
+
+  const activeSentRequests = useMemo(() => {
+    return sentRequests.filter((item) => (item.status ?? '未確認') !== '完了')
+  }, [sentRequests])
 
   const sentDisplayItems = useMemo<SentDisplayItem[]>(() => {
     const grouped = new Map<string, RequestItem[]>()
     const singles: RequestItem[] = []
 
-    for (const item of sentRequests) {
+    for (const item of activeSentRequests) {
       if (item.batch_id) {
         const current = grouped.get(item.batch_id) ?? []
         current.push(item)
@@ -650,7 +680,7 @@ export default function Home() {
           : new Date(b.request.created_at).getTime()
       return dateB - dateA
     })
-  }, [sentRequests])
+  }, [activeSentRequests])
 
   const filteredRecipientCandidates = useMemo(() => {
     const keyword = userSearch.trim().toLowerCase()
@@ -683,10 +713,10 @@ export default function Home() {
       pendingCount,
       recentSent,
       receivedTotal: receivedRequests.length,
-      sentTotal: sentRequests.length,
+      sentTotal: activeSentRequests.length,
       completedTotal: historyRequests.length,
     }
-  }, [receivedRequests, sentRequests, sentDisplayItems, historyRequests])
+  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests])
 
   const resetForm = () => {
     setTitle('')
@@ -877,23 +907,25 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'flex h-full flex-col border-r border-slate-200 bg-sky-100 text-slate-900',
+        'flex h-full flex-col border-r border-slate-200 bg-slate-950 text-white',
         mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
       )}
     >
-      <div className="flex items-center justify-between border-b border-sky-200 px-4 py-4">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
         <div className={cn('min-w-0', desktopSidebarCollapsed && !mobile && 'hidden')}>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
             Work-Hub
           </p>
-          <h1 className="truncate text-lg font-semibold text-slate-900">業務管理アプリ</h1>
+          <h1 className="truncate text-lg font-semibold text-white">
+            業務管理アプリ
+          </h1>
         </div>
 
         {!mobile && (
           <button
             type="button"
             onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
           >
             {desktopSidebarCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
           </button>
@@ -903,30 +935,33 @@ export default function Home() {
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(false)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
           >
             <CloseIcon />
           </button>
         )}
       </div>
 
-      <div className="border-b border-sky-200 px-4 py-4">
+      <div className="border-b border-white/10 px-4 py-4">
         <div
           className={cn(
-            'rounded-2xl border border-sky-200 bg-white p-4',
+            'rounded-2xl border border-white/10 bg-white/5 p-4',
             desktopSidebarCollapsed && !mobile && 'flex items-center justify-center p-3'
           )}
         >
           {desktopSidebarCollapsed && !mobile ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
-              {(currentUserProfile?.name?.trim() || user?.email || 'U').slice(0, 1)}
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+              {(currentUserProfile?.name?.trim() || user?.email || 'U').slice(
+                0,
+                1
+              )}
             </div>
           ) : (
             <>
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-white">
                 {currentUserProfile?.name?.trim() || 'ログイン中'}
               </p>
-              <p className="mt-1 truncate text-xs text-slate-600">
+              <p className="mt-1 truncate text-xs text-slate-300">
                 {user?.email || 'メール未取得'}
               </p>
             </>
@@ -948,8 +983,8 @@ export default function Home() {
               className={cn(
                 'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
                 active
-                  ? 'bg-white text-sky-800 shadow-sm ring-1 ring-inset ring-sky-200'
-                  : 'text-slate-700 hover:bg-white/80',
+                  ? 'bg-white text-slate-950 shadow-sm'
+                  : 'text-slate-200 hover:bg-white/10',
                 desktopSidebarCollapsed && !mobile && 'justify-center px-0'
               )}
             >
@@ -960,13 +995,13 @@ export default function Home() {
         })}
       </nav>
 
-      <div className="border-t border-sky-200 p-3">
+      <div className="border-t border-white/10 p-3">
         {user ? (
           <button
             type="button"
             onClick={handleLogout}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-sky-700',
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
               desktopSidebarCollapsed && !mobile ? 'px-0' : ''
             )}
           >
@@ -978,7 +1013,7 @@ export default function Home() {
             type="button"
             onClick={handleLogin}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-3 py-3 text-sm font-semibold text-white transition hover:bg-sky-700',
+              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
               desktopSidebarCollapsed && !mobile ? 'px-0' : ''
             )}
           >
@@ -989,6 +1024,56 @@ export default function Home() {
       </div>
     </div>
   )
+
+  const renderReceivedStatusSelect = (request: RequestItem) => {
+    const currentStatus = request.status ?? '未確認'
+    const currentMeta = STATUS_META[currentStatus] ?? STATUS_META['未確認']
+
+    return (
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[170px]">
+          <select
+            value={currentStatus}
+            onChange={(event) =>
+              handleStatusChange(request.id, event.target.value)
+            }
+            className={cn(
+              'w-full appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold outline-none transition',
+              currentStatus === '未確認' &&
+                'border-red-200 bg-red-50 text-red-700',
+              currentStatus === '対応中' &&
+                'border-amber-200 bg-amber-50 text-amber-700',
+              currentStatus === '完了' &&
+                'border-emerald-200 bg-emerald-50 text-emerald-700'
+            )}
+          >
+            <option value="未確認">未完了</option>
+            <option value="対応中">保留中</option>
+            <option value="完了">完了</option>
+          </select>
+          <span
+            className={cn(
+              'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2',
+              currentStatus === '未確認' && 'text-red-500',
+              currentStatus === '対応中' && 'text-amber-500',
+              currentStatus === '完了' && 'text-emerald-500'
+            )}
+          >
+            <ChevronDownIcon />
+          </span>
+        </div>
+
+        <span
+          className={cn(
+            'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+            currentMeta.className
+          )}
+        >
+          {currentMeta.label}
+        </span>
+      </div>
+    )
+  }
 
   const renderRequestCard = (request: RequestItem, showRecipient = false) => {
     const cardStyle = getRequestCardStyle(request)
@@ -1008,14 +1093,16 @@ export default function Home() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-slate-900">{request.title}</h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                {request.title}
+              </h3>
               <span
                 className={cn(
                   'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
                   cardStyle.statusClassName
                 )}
               >
-                {request.status ?? '未確認'}
+                {getStatusLabel(request.status)}
               </span>
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                 優先度：{request.priority ?? '中'}
@@ -1072,33 +1159,9 @@ export default function Home() {
           </div>
         </div>
 
-        {request.recipient_id === currentUserId && (request.status ?? '未確認') !== '完了' && (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {STATUS_OPTIONS.filter((item) => item !== '完了').map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleStatusChange(request.id, item)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                  (request.status ?? '未確認') === item
-                    ? 'bg-sky-600 text-white'
-                    : 'bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
-                )}
-              >
-                {item}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => handleStatusChange(request.id, '完了')}
-              className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
-            >
-              完了
-            </button>
-          </div>
-        )}
+        {request.recipient_id === currentUserId &&
+          (request.status ?? '未確認') !== '完了' &&
+          renderReceivedStatusSelect(request)}
       </div>
     )
   }
@@ -1112,7 +1175,9 @@ export default function Home() {
       (request) => (request.status ?? '未確認') !== '完了'
     )
     const unresolvedNames = unresolved.map((request) =>
-      getUserLabel(request.recipient_id ? userMap.get(request.recipient_id) : undefined)
+      getUserLabel(
+        request.recipient_id ? userMap.get(request.recipient_id) : undefined
+      )
     )
 
     return (
@@ -1123,8 +1188,10 @@ export default function Home() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
-              <span className="inline-flex items-center rounded-full bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white">
+              <h3 className="text-base font-semibold text-slate-900">
+                {item.title}
+              </h3>
+              <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
                 同時送信 {item.requests.length}名
               </span>
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -1144,7 +1211,9 @@ export default function Home() {
             <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-800">未確認者：</p>
               <p className="mt-1 break-words">
-                {unresolvedNames.length > 0 ? unresolvedNames.join('、') : '全員対応済み'}
+                {unresolvedNames.length > 0
+                  ? unresolvedNames.join('、')
+                  : '全員対応済み'}
               </p>
             </div>
 
@@ -1163,7 +1232,9 @@ export default function Home() {
                 })
                 .map((request) => {
                   const recipientName = getUserLabel(
-                    request.recipient_id ? userMap.get(request.recipient_id) : undefined
+                    request.recipient_id
+                      ? userMap.get(request.recipient_id)
+                      : undefined
                   )
 
                   return (
@@ -1177,7 +1248,7 @@ export default function Home() {
                             {recipientName}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            ステータス：{request.status ?? '未確認'}
+                            ステータス：{getStatusLabel(request.status)}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1303,33 +1374,34 @@ export default function Home() {
           )}
 
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            {(editingId ? users.filter((item) => item.id !== currentUserId) : filteredRecipientCandidates).map(
-              (item) => {
-                const checked = recipientIds.includes(item.id)
-                return (
-                  <label
-                    key={item.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleToggleRecipient(item.id)}
-                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                      disabled={!!editingId && item.id !== recipientIds[0]}
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900">
-                        {getUserLabel(item)}
-                      </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {item.email || 'メール未設定'}
-                      </p>
-                    </div>
-                  </label>
-                )
-              }
-            )}
+            {(editingId
+              ? users.filter((item) => item.id !== currentUserId)
+              : filteredRecipientCandidates
+            ).map((item) => {
+              const checked = recipientIds.includes(item.id)
+              return (
+                <label
+                  key={item.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-700 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => handleToggleRecipient(item.id)}
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                    disabled={!!editingId && item.id !== recipientIds[0]}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">
+                      {getUserLabel(item)}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {item.email || 'メール未設定'}
+                    </p>
+                  </div>
+                </label>
+              )
+            })}
 
             {!editingId && filteredRecipientCandidates.length === 0 && (
               <p className="py-6 text-center text-sm text-slate-500">
@@ -1351,7 +1423,7 @@ export default function Home() {
             >
               {STATUS_OPTIONS.filter((item) => item !== '完了').map((item) => (
                 <option key={item} value={item}>
-                  {item}
+                  {getStatusLabel(item)}
                 </option>
               ))}
             </select>
@@ -1403,7 +1475,7 @@ export default function Home() {
             type="button"
             onClick={handleCreateRequest}
             disabled={submitting}
-            className="inline-flex h-11 items-center rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {submitting ? '保存中...' : editingId ? '更新する' : '保存する'}
           </button>
@@ -1451,7 +1523,9 @@ export default function Home() {
             <p
               className={cn(
                 'text-sm font-semibold',
-                dashboardCounts.overduePendingCount > 0 ? 'text-red-700' : 'text-slate-500'
+                dashboardCounts.overduePendingCount > 0
+                  ? 'text-red-700'
+                  : 'text-slate-500'
               )}
             >
               期限切れ・要対応
@@ -1471,7 +1545,9 @@ export default function Home() {
             <p
               className={cn(
                 'text-4xl font-bold tracking-tight',
-                dashboardCounts.overduePendingCount > 0 ? 'text-red-700' : 'text-slate-900'
+                dashboardCounts.overduePendingCount > 0
+                  ? 'text-red-700'
+                  : 'text-slate-900'
               )}
             >
               {dashboardCounts.overduePendingCount}
@@ -1556,7 +1632,9 @@ export default function Home() {
                 )
               })
             ) : (
-              <p className="text-sm text-slate-500">まだ送信依頼はありません。</p>
+              <p className="text-sm text-slate-500">
+                まだ送信依頼はありません。
+              </p>
             )}
           </div>
         </div>
@@ -1578,7 +1656,7 @@ export default function Home() {
                 setCreateFormOpen((prev) => !prev)
                 setActiveView('dashboard')
               }}
-              className="flex w-full items-center justify-between rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-left text-sm font-semibold text-sky-800 transition hover:bg-sky-100"
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-900 px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               <span>新規依頼を追加</span>
               <PlusIcon />
@@ -1654,7 +1732,7 @@ export default function Home() {
             resetForm()
             setCreateFormOpen(true)
           }}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
           <PlusIcon />
           新規依頼
@@ -1689,7 +1767,7 @@ export default function Home() {
             resetForm()
             setCreateFormOpen(true)
           }}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
+          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
           <PlusIcon />
           新規依頼
@@ -1768,7 +1846,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleLogin}
-            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 text-sm font-semibold text-white transition hover:bg-sky-700"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             <LoginIcon />
             Googleでログイン
@@ -1903,7 +1981,7 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     ステータス
                   </p>
-                  <p className="mt-1">{detailTarget.status ?? '未確認'}</p>
+                  <p className="mt-1">{getStatusLabel(detailTarget.status)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -1921,14 +1999,18 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     作成日
                   </p>
-                  <p className="mt-1">{formatDateTime(detailTarget.created_at)}</p>
+                  <p className="mt-1">
+                    {formatDateTime(detailTarget.created_at)}
+                  </p>
                 </div>
                 {(detailTarget.status ?? '未確認') === '完了' && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                       完了日
                     </p>
-                    <p className="mt-1">{formatDateTime(detailTarget.completed_at)}</p>
+                    <p className="mt-1">
+                      {formatDateTime(detailTarget.completed_at)}
+                    </p>
                   </div>
                 )}
               </div>
