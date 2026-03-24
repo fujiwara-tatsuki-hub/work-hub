@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 
 type RequestItem = {
@@ -866,7 +866,7 @@ export default function Home() {
   const menuItems: Array<{
     key: ViewKey
     label: string
-    icon: JSX.Element
+    icon: ReactNode
   }> = [
     { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
     { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
