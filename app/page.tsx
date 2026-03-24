@@ -24,7 +24,26 @@ type UserItem = {
   role: string | null
 }
 
-type ViewKey = 'dashboard' | 'received' | 'sent' | 'history'
+type LinkGroupItem = {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+type LinkItem = {
+  id: string
+  group_id: string | null
+  title: string
+  url: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links'
 
 type SentDisplayItem =
   | {
@@ -120,16 +139,14 @@ function getPriorityMeta(priority: string | null | undefined) {
   if (key === '高') {
     return {
       label: '高',
-      className:
-        'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+      className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
     }
   }
 
   if (key === '低') {
     return {
       label: '低',
-      className:
-        'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
+      className: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
     }
   }
 
@@ -498,6 +515,25 @@ function HistoryIcon() {
   )
 }
 
+function LinkListIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L11 4" />
+      <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 1 0 7.07 7.07L13 20" />
+    </svg>
+  )
+}
+
 function DotAlertIcon() {
   return (
     <svg
@@ -508,6 +544,26 @@ function DotAlertIcon() {
       aria-hidden="true"
     >
       <circle cx="12" cy="12" r="10" />
+    </svg>
+  )
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M14 3h7v7" />
+      <path d="M10 14 21 3" />
+      <path d="M21 14v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h4" />
     </svg>
   )
 }
@@ -537,6 +593,8 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [requests, setRequests] = useState<RequestItem[]>([])
   const [users, setUsers] = useState<UserItem[]>([])
+  const [linkGroups, setLinkGroups] = useState<LinkGroupItem[]>([])
+  const [links, setLinks] = useState<LinkItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
@@ -546,6 +604,7 @@ export default function Home() {
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] =
     useState(false)
   const [userSearch, setUserSearch] = useState('')
+  const [linkSearch, setLinkSearch] = useState('')
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -639,20 +698,58 @@ export default function Home() {
     setRequests((data as RequestItem[]) ?? [])
   }
 
+  const fetchLinkGroups = async () => {
+    const { data, error } = await supabase
+      .from('link_groups')
+      .select('id, name, parent_id, sort_order, created_at, updated_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('link_groups取得エラー:', error)
+      return
+    }
+
+    setLinkGroups((data as LinkGroupItem[]) ?? [])
+  }
+
+  const fetchLinks = async () => {
+    const { data, error } = await supabase
+      .from('links')
+      .select('id, group_id, title, url, sort_order, created_at, updated_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('links取得エラー:', error)
+      return
+    }
+
+    setLinks((data as LinkItem[]) ?? [])
+  }
+
   useEffect(() => {
     if (!currentUserId) {
       setRequests([])
       setUsers([])
+      setLinkGroups([])
+      setLinks([])
       return
     }
 
     fetchUsers()
     fetchRequests()
+    fetchLinkGroups()
+    fetchLinks()
   }, [currentUserId])
 
   const currentUserProfile = useMemo(() => {
     return users.find((item) => item.id === currentUserId)
   }, [users, currentUserId])
+
+  const isAdmin = useMemo(() => {
+    return currentUserProfile?.role === 'admin'
+  }, [currentUserProfile])
 
   const userMap = useMemo(() => {
     return new Map(users.map((item) => [item.id, item]))
@@ -778,6 +875,95 @@ export default function Home() {
       completedTotal: historyRequests.length,
     }
   }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests])
+
+  const linkGroupsMap = useMemo(() => {
+    return new Map(linkGroups.map((group) => [group.id, group]))
+  }, [linkGroups])
+
+  const filteredLinks = useMemo(() => {
+    const keyword = linkSearch.trim().toLowerCase()
+    if (!keyword) return links
+
+    return links.filter((link) => link.title.toLowerCase().includes(keyword))
+  }, [links, linkSearch])
+
+  const rootLinkGroups = useMemo(() => {
+    return [...linkGroups]
+      .filter((group) => !group.parent_id)
+      .sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.name.localeCompare(b.name, 'ja')
+      })
+  }, [linkGroups])
+
+  const childGroupsMap = useMemo(() => {
+    const map = new Map<string, LinkGroupItem[]>()
+
+    for (const group of linkGroups) {
+      if (!group.parent_id) continue
+      const current = map.get(group.parent_id) ?? []
+      current.push(group)
+      map.set(group.parent_id, current)
+    }
+
+    for (const [key, value] of map.entries()) {
+      map.set(
+        key,
+        value.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.name.localeCompare(b.name, 'ja')
+        })
+      )
+    }
+
+    return map
+  }, [linkGroups])
+
+  const ungroupedLinks = useMemo(() => {
+    return filteredLinks
+      .filter((link) => !link.group_id)
+      .sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.title.localeCompare(b.title, 'ja')
+      })
+  }, [filteredLinks])
+
+  const linksByGroupId = useMemo(() => {
+    const map = new Map<string, LinkItem[]>()
+
+    for (const link of filteredLinks) {
+      if (!link.group_id) continue
+      const current = map.get(link.group_id) ?? []
+      current.push(link)
+      map.set(link.group_id, current)
+    }
+
+    for (const [key, value] of map.entries()) {
+      map.set(
+        key,
+        value.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.title.localeCompare(b.title, 'ja')
+        })
+      )
+    }
+
+    return map
+  }, [filteredLinks])
+
+  const visibleRootGroups = useMemo(() => {
+    return rootLinkGroups.filter((group) => {
+      const ownLinks = linksByGroupId.get(group.id) ?? []
+      const childGroups = childGroupsMap.get(group.id) ?? []
+
+      const visibleChildGroups = childGroups.filter((child) => {
+        const childLinks = linksByGroupId.get(child.id) ?? []
+        return childLinks.length > 0
+      })
+
+      return ownLinks.length > 0 || visibleChildGroups.length > 0
+    })
+  }, [rootLinkGroups, linksByGroupId, childGroupsMap])
 
   const resetForm = () => {
     setTitle('')
@@ -963,6 +1149,7 @@ export default function Home() {
     { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
     { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
     { key: 'history', label: '履歴', icon: <HistoryIcon /> },
+    { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
   ]
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -1037,6 +1224,9 @@ export default function Home() {
               </p>
               <p className="mt-1 truncate text-xs text-slate-300">
                 {user?.email || 'メール未取得'}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                権限：{isAdmin ? '管理者' : '一般ユーザー'}
               </p>
             </>
           )}
@@ -1612,11 +1802,7 @@ export default function Home() {
               ? 'bg-amber-100 text-amber-600'
               : 'bg-slate-100 text-slate-400'
           )}
-          title={
-            hasOverdueUnconfirmed
-              ? '期限切れかつ未確認あり'
-              : '通常'
-          }
+          title={hasOverdueUnconfirmed ? '期限切れかつ未確認あり' : '通常'}
         >
           <DotAlertIcon />
         </span>
@@ -1948,6 +2134,218 @@ export default function Home() {
     </div>
   )
 
+  const renderLinkCard = (group: LinkGroupItem) => {
+    const ownLinks = linksByGroupId.get(group.id) ?? []
+    const childGroups = childGroupsMap.get(group.id) ?? []
+    const visibleChildGroups = childGroups.filter((child) => {
+      const childLinks = linksByGroupId.get(child.id) ?? []
+      return childLinks.length > 0
+    })
+
+    return (
+      <div
+        key={group.id}
+        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-lg font-semibold text-slate-900">{group.name}</p>
+            <p className="mt-1 text-xs text-slate-500">親グループ</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {ownLinks.length + visibleChildGroups.reduce((sum, child) => {
+              const childLinks = linksByGroupId.get(child.id) ?? []
+              return sum + childLinks.length
+            }, 0)}{' '}
+            件
+          </span>
+        </div>
+
+        {ownLinks.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-semibold text-slate-800">
+              このグループのリンク
+            </p>
+            <div className="space-y-2">
+              {ownLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">
+                      {link.title}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {link.url}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-slate-500">
+                    <ExternalLinkIcon />
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {visibleChildGroups.length > 0 && (
+          <div className="mt-5 space-y-4">
+            {visibleChildGroups.map((child) => {
+              const childLinks = linksByGroupId.get(child.id) ?? []
+
+              return (
+                <div
+                  key={child.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {child.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        子グループ
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                      {childLinks.length}件
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {childLinks.map((link) => (
+                      <a
+                        key={link.id}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900">
+                            {link.title}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {link.url}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-slate-500">
+                          <ExternalLinkIcon />
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderLinks = () => (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">リンク一覧</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            全員共通のリンクをグループ単位で表示します
+          </p>
+        </div>
+
+        <div className="w-full max-w-md">
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <SearchIcon />
+            </span>
+            <input
+              value={linkSearch}
+              onChange={(event) => setLinkSearch(event.target.value)}
+              placeholder="タイトルで検索"
+              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              権限について
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              閲覧は全員可能。追加・編集・削除・並び替えは次で管理者のみ実装します。
+            </p>
+          </div>
+          <span
+            className={cn(
+              'rounded-full px-3 py-1 text-xs font-semibold',
+              isAdmin
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-slate-100 text-slate-700'
+            )}
+          >
+            {isAdmin ? '管理者でログイン中' : '一般ユーザーでログイン中'}
+          </span>
+        </div>
+      </div>
+
+      {visibleRootGroups.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {visibleRootGroups.map((group) => renderLinkCard(group))}
+        </div>
+      ) : (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+          該当するリンクがありません。
+        </div>
+      )}
+
+      {ungroupedLinks.length > 0 && (
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-semibold text-slate-900">その他</p>
+              <p className="mt-1 text-xs text-slate-500">未分類のリンク</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              {ungroupedLinks.length}件
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {ungroupedLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-slate-900">
+                    {link.title}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {link.url}
+                  </p>
+                </div>
+                <span className="shrink-0 text-slate-500">
+                  <ExternalLinkIcon />
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -2052,6 +2450,7 @@ export default function Home() {
               {!createFormOpen && activeView === 'received' && renderReceived()}
               {!createFormOpen && activeView === 'sent' && renderSent()}
               {!createFormOpen && activeView === 'history' && renderHistory()}
+              {!createFormOpen && activeView === 'links' && renderLinks()}
             </div>
           </div>
         </div>
