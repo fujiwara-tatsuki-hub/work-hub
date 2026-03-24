@@ -114,12 +114,38 @@ function getStatusLabel(status: string | null | undefined) {
   return STATUS_META[key]?.label ?? key
 }
 
+function getPriorityMeta(priority: string | null | undefined) {
+  const key = priority ?? '中'
+
+  if (key === '高') {
+    return {
+      label: '高',
+      className:
+        'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
+
+  if (key === '低') {
+    return {
+      label: '低',
+      className:
+        'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
+    }
+  }
+
+  return {
+    label: '中',
+    className:
+      'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
+  }
+}
+
 function getRequestCardStyle(request: RequestItem) {
   const status = request.status ?? '未確認'
   if (status === '未確認' && isOverdue(request.deadline)) {
     return {
       cardClassName:
-        'border border-red-200 bg-red-50/70 shadow-sm shadow-red-100/40',
+        'border border-red-200 bg-red-50/80 shadow-sm shadow-red-100/40',
       statusClassName:
         'bg-red-100 text-red-700 ring-1 ring-inset ring-red-200',
     }
@@ -469,6 +495,41 @@ function HistoryIcon() {
       <path d="M3 3v6h6" />
       <path d="M12 7v5l3 2" />
     </svg>
+  )
+}
+
+function DotAlertIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+    </svg>
+  )
+}
+
+function BarChartMini({
+  tone,
+}: {
+  tone: 'amber' | 'blue' | 'green'
+}) {
+  const toneClass =
+    tone === 'amber'
+      ? 'bg-amber-500/80'
+      : tone === 'blue'
+      ? 'bg-blue-500/80'
+      : 'bg-emerald-500/80'
+
+  return (
+    <div className="mt-4 flex items-end justify-center gap-1.5">
+      <span className={cn('block w-3 rounded-full', toneClass, 'h-4')} />
+      <span className={cn('block w-3 rounded-full', toneClass, 'h-7')} />
+      <span className={cn('block w-3 rounded-full', toneClass, 'h-10')} />
+    </div>
   )
 }
 
@@ -907,46 +968,59 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'flex h-full flex-col border-r border-slate-200 bg-slate-950 text-white',
+        'flex h-full flex-col border-r border-slate-800/70 bg-slate-950 text-white',
         mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
       )}
     >
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
-        <div className={cn('min-w-0', desktopSidebarCollapsed && !mobile && 'hidden')}>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-            Work-Hub
-          </p>
-          <h1 className="truncate text-lg font-semibold text-white">
-            業務管理アプリ
-          </h1>
+      <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_55%)] px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div
+            className={cn(
+              'min-w-0',
+              desktopSidebarCollapsed && !mobile && 'hidden'
+            )}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              WORK-HUB
+            </p>
+            <h1 className="truncate text-[15px] font-bold text-white">
+              業務管理アプリ
+            </h1>
+          </div>
+
+          {!mobile && (
+            <button
+              type="button"
+              onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+            >
+              {desktopSidebarCollapsed ? (
+                <ChevronRightIcon />
+              ) : (
+                <ChevronDownIcon />
+              )}
+            </button>
+          )}
+
+          {mobile && (
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
+            >
+              <CloseIcon />
+            </button>
+          )}
         </div>
-
-        {!mobile && (
-          <button
-            type="button"
-            onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
-          >
-            {desktopSidebarCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
-          </button>
-        )}
-
-        {mobile && (
-          <button
-            type="button"
-            onClick={() => setMobileSidebarOpen(false)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
-          >
-            <CloseIcon />
-          </button>
-        )}
       </div>
 
       <div className="border-b border-white/10 px-4 py-4">
         <div
           className={cn(
-            'rounded-2xl border border-white/10 bg-white/5 p-4',
-            desktopSidebarCollapsed && !mobile && 'flex items-center justify-center p-3'
+            'rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.35)]',
+            desktopSidebarCollapsed &&
+              !mobile &&
+              'flex items-center justify-center p-3'
           )}
         >
           {desktopSidebarCollapsed && !mobile ? (
@@ -969,7 +1043,7 @@ export default function Home() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-2 px-3 py-4">
+      <nav className="flex-1 space-y-2 px-3 py-5">
         {menuItems.map((item) => {
           const active = activeView === item.key
           return (
@@ -981,9 +1055,9 @@ export default function Home() {
                 setMobileSidebarOpen(false)
               }}
               className={cn(
-                'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition',
+                'flex w-full items-center gap-3 rounded-[20px] px-3 py-3 text-left text-sm font-medium transition',
                 active
-                  ? 'bg-white text-slate-950 shadow-sm'
+                  ? 'bg-white/10 text-white shadow-sm ring-1 ring-inset ring-white/10'
                   : 'text-slate-200 hover:bg-white/10',
                 desktopSidebarCollapsed && !mobile && 'justify-center px-0'
               )}
@@ -996,31 +1070,17 @@ export default function Home() {
       </nav>
 
       <div className="border-t border-white/10 p-3">
-        {user ? (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
-              desktopSidebarCollapsed && !mobile ? 'px-0' : ''
-            )}
-          >
-            <LogoutIcon />
-            {(!desktopSidebarCollapsed || mobile) && <span>ログアウト</span>}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleLogin}
-            className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
-              desktopSidebarCollapsed && !mobile ? 'px-0' : ''
-            )}
-          >
-            <LoginIcon />
-            {(!desktopSidebarCollapsed || mobile) && <span>ログイン</span>}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={cn(
+            'flex w-full items-center justify-center gap-2 rounded-[20px] bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
+            desktopSidebarCollapsed && !mobile ? 'px-0' : ''
+          )}
+        >
+          <LogoutIcon />
+          {(!desktopSidebarCollapsed || mobile) && <span>ログアウト</span>}
+        </button>
       </div>
     </div>
   )
@@ -1075,6 +1135,21 @@ export default function Home() {
     )
   }
 
+  const renderPriorityBadge = (priority: string | null | undefined) => {
+    const meta = getPriorityMeta(priority)
+
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+          meta.className
+        )}
+      >
+        優先度：{meta.label}
+      </span>
+    )
+  }
+
   const renderRequestCard = (request: RequestItem, showRecipient = false) => {
     const cardStyle = getRequestCardStyle(request)
     const senderName = getUserLabel(userMap.get(request.sender_id))
@@ -1086,7 +1161,7 @@ export default function Home() {
       <div
         key={request.id}
         className={cn(
-          'rounded-3xl p-4 transition sm:p-5',
+          'rounded-[28px] p-4 transition sm:p-5',
           cardStyle.cardClassName
         )}
       >
@@ -1104,9 +1179,7 @@ export default function Home() {
               >
                 {getStatusLabel(request.status)}
               </span>
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                優先度：{request.priority ?? '中'}
-              </span>
+              {renderPriorityBadge(request.priority)}
             </div>
 
             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
@@ -1183,10 +1256,10 @@ export default function Home() {
     return (
       <div
         key={item.batchId}
-        className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+        className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-3">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-slate-900">
                 {item.title}
@@ -1194,9 +1267,7 @@ export default function Home() {
               <span className="inline-flex items-center rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">
                 同時送信 {item.requests.length}名
               </span>
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                優先度：{item.priority ?? '中'}
-              </span>
+              {renderPriorityBadge(item.priority)}
             </div>
 
             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
@@ -1236,20 +1307,31 @@ export default function Home() {
                       ? userMap.get(request.recipient_id)
                       : undefined
                   )
+                  const rowStyle = getRequestCardStyle(request)
 
                   return (
                     <div
                       key={request.id}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                      className={cn(
+                        'rounded-2xl border px-4 py-3',
+                        rowStyle.cardClassName
+                      )}
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">
-                            {recipientName}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            ステータス：{getStatusLabel(request.status)}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-800">
+                              {recipientName}
+                            </p>
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                                rowStyle.statusClassName
+                              )}
+                            >
+                              {getStatusLabel(request.status)}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {request.sender_id === currentUserId && (
@@ -1484,27 +1566,83 @@ export default function Home() {
     </div>
   )
 
+  const renderRecentSentCard = (item: SentDisplayItem) => {
+    const hasOverdueUnconfirmed =
+      item.type === 'single'
+        ? (item.request.status ?? '未確認') === '未確認' &&
+          isOverdue(item.request.deadline)
+        : item.requests.some(
+            (request) =>
+              (request.status ?? '未確認') === '未確認' &&
+              isOverdue(request.deadline)
+          )
+
+    const title = item.type === 'single' ? item.request.title : item.title
+    const subtitle =
+      item.type === 'single'
+        ? `共有先：${getUserLabel(
+            item.request.recipient_id
+              ? userMap.get(item.request.recipient_id)
+              : undefined
+          )}`
+        : `同時送信 ${item.requests.length}名`
+
+    return (
+      <div
+        key={item.type === 'single' ? item.request.id : item.batchId}
+        className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-sm"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {title}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-500">{subtitle}</p>
+        </div>
+
+        <span
+          className={cn(
+            'ml-3 inline-flex h-8 w-8 items-center justify-center rounded-full',
+            hasOverdueUnconfirmed
+              ? 'bg-amber-100 text-amber-600'
+              : 'bg-slate-100 text-slate-400'
+          )}
+          title={
+            hasOverdueUnconfirmed
+              ? '期限切れかつ未確認あり'
+              : '通常'
+          }
+        >
+          <DotAlertIcon />
+        </span>
+      </div>
+    )
+  }
+
   const renderDashboard = () => (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-5 lg:grid-cols-3">
       <a
         href={MY_CONNECT_URL}
         target="_blank"
         rel="noreferrer"
-        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(15,23,42,0.12)]"
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-500">マイコネクト</p>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            <p className="text-[15px] font-semibold text-blue-700">
+              マイコネクト
+            </p>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
               外部リンク
             </span>
           </div>
-          <div className="mt-4 flex-1">
-            <h2 className="text-xl font-semibold text-slate-900">
+          <div className="mt-5 flex-1">
+            <h2 className="text-[22px] font-bold text-slate-900">
               マイコネクトを開く
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              タップすると指定のマイコネクト画面へ移動します。
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              タップすると指定のマイコネクト画面へ
+              <br className="hidden sm:block" />
+              移動します。
             </p>
           </div>
         </div>
@@ -1512,9 +1650,9 @@ export default function Home() {
 
       <div
         className={cn(
-          'rounded-[28px] p-5 shadow-sm',
+          'rounded-[30px] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]',
           dashboardCounts.overduePendingCount > 0
-            ? 'border border-red-200 bg-red-50/80'
+            ? 'border border-red-200 bg-red-50/90'
             : 'border border-slate-200 bg-white'
         )}
       >
@@ -1522,10 +1660,10 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <p
               className={cn(
-                'text-sm font-semibold',
+                'text-[15px] font-semibold',
                 dashboardCounts.overduePendingCount > 0
                   ? 'text-red-700'
-                  : 'text-slate-500'
+                  : 'text-slate-800'
               )}
             >
               期限切れ・要対応
@@ -1534,121 +1672,100 @@ export default function Home() {
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-semibold',
                 dashboardCounts.overduePendingCount > 0
-                  ? 'bg-white/80 text-red-700 ring-1 ring-inset ring-red-200'
+                  ? 'bg-amber-100 text-amber-700'
                   : 'bg-slate-100 text-slate-700'
               )}
             >
               優先確認
             </span>
           </div>
-          <div className="mt-4 flex-1">
-            <p
-              className={cn(
-                'text-4xl font-bold tracking-tight',
-                dashboardCounts.overduePendingCount > 0
-                  ? 'text-red-700'
-                  : 'text-slate-900'
-              )}
-            >
-              {dashboardCounts.overduePendingCount}
-            </p>
-            <p
-              className={cn(
-                'mt-2 text-sm leading-6',
-                dashboardCounts.overduePendingCount > 0
-                  ? 'text-red-700/80'
-                  : 'text-slate-600'
-              )}
-            >
-              期限切れで未完了の依頼件数です。
-            </p>
+
+          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
+            <div>
+              <p
+                className={cn(
+                  'text-6xl font-bold leading-none tracking-tight',
+                  dashboardCounts.overduePendingCount > 0
+                    ? 'text-red-700'
+                    : 'text-slate-500'
+                )}
+              >
+                {dashboardCounts.overduePendingCount}
+              </p>
+            </div>
+            <div className="text-right text-sm text-slate-500">
+              <p>0 out of total</p>
+            </div>
           </div>
+
+          <div className="mt-5 h-2 rounded-full bg-slate-200/80" />
+          <p
+            className={cn(
+              'mt-4 text-sm leading-6',
+              dashboardCounts.overduePendingCount > 0
+                ? 'text-red-700/80'
+                : 'text-slate-600'
+            )}
+          >
+            期限切りで未完了の依頼件です。
+          </p>
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-500">未対応の依頼</p>
+            <p className="text-[15px] font-semibold text-slate-800">
+              未対応の依頼
+            </p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               受信
             </span>
           </div>
-          <div className="mt-4 flex-1">
-            <p className="text-4xl font-bold tracking-tight text-slate-900">
+          <div className="mt-5 flex-1">
+            <p className="text-6xl font-bold leading-none tracking-tight text-slate-500">
               {dashboardCounts.pendingCount}
             </p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              まだ完了していない受信依頼の件数です。
+            <p className="mt-5 text-sm leading-6 text-slate-600">
+              まだ完了していない受信依頼の件です。
             </p>
           </div>
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-500">最近の送信依頼</p>
+            <p className="text-[15px] font-semibold text-slate-800">
+              最近の送信依頼
+            </p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               最新5件
             </span>
           </div>
-          <div className="mt-4 flex-1 space-y-3">
-            {dashboardCounts.recentSent.length > 0 ? (
-              dashboardCounts.recentSent.map((item) => {
-                if (item.type === 'single') {
-                  return (
-                    <div
-                      key={item.request.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
-                    >
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {item.request.title}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        共有先：
-                        {getUserLabel(
-                          item.request.recipient_id
-                            ? userMap.get(item.request.recipient_id)
-                            : undefined
-                        )}
-                      </p>
-                    </div>
-                  )
-                }
 
-                return (
-                  <div
-                    key={item.batchId}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
-                  >
-                    <p className="truncate text-sm font-semibold text-slate-900">
-                      {item.title}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      同時送信 {item.requests.length}名
-                    </p>
-                  </div>
-                )
-              })
+          <div className="mt-5 flex-1 space-y-3">
+            {dashboardCounts.recentSent.length > 0 ? (
+              dashboardCounts.recentSent.map((item) => renderRecentSentCard(item))
             ) : (
-              <p className="text-sm text-slate-500">
+              <div className="rounded-[22px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                 まだ送信依頼はありません。
-              </p>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-500">操作</p>
+            <p className="text-[15px] font-semibold text-slate-800">操作</p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               クイック
             </span>
           </div>
-          <div className="mt-4 flex-1 space-y-3">
+
+          <div className="mt-5 flex-1 space-y-3">
             <button
               type="button"
               onClick={() => {
@@ -1656,7 +1773,7 @@ export default function Home() {
                 setCreateFormOpen((prev) => !prev)
                 setActiveView('dashboard')
               }}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-900 px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
             >
               <span>新規依頼を追加</span>
               <PlusIcon />
@@ -1665,7 +1782,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setActiveView('received')}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
             >
               <span>受信依頼を見る</span>
               <ChevronRightIcon />
@@ -1674,7 +1791,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setActiveView('sent')}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
             >
               <span>送信依頼を見る</span>
               <ChevronRightIcon />
@@ -1683,32 +1800,38 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-500">概要</p>
+            <p className="text-[15px] font-semibold text-slate-800">概要</p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               件数サマリ
             </span>
           </div>
-          <div className="mt-4 grid flex-1 grid-cols-3 gap-3">
-            <div className="rounded-2xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500">受信</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+
+          <div className="mt-5 grid flex-1 grid-cols-3 gap-3">
+            <div className="rounded-[22px] bg-amber-50 p-4 text-center">
+              <p className="text-sm font-semibold text-amber-700">受信</p>
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.receivedTotal}
               </p>
+              <BarChartMini tone="amber" />
             </div>
-            <div className="rounded-2xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500">送信</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+
+            <div className="rounded-[22px] bg-blue-50 p-4 text-center">
+              <p className="text-sm font-semibold text-blue-700">送信</p>
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.sentTotal}
               </p>
+              <BarChartMini tone="blue" />
             </div>
-            <div className="rounded-2xl bg-slate-50 p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500">完了</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">
+
+            <div className="rounded-[22px] bg-emerald-50 p-4 text-center">
+              <p className="text-sm font-semibold text-emerald-700">完了</p>
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.completedTotal}
               </p>
+              <BarChartMini tone="green" />
             </div>
           </div>
         </div>
@@ -1740,7 +1863,7 @@ export default function Home() {
       </div>
 
       {activeReceivedRequests.length > 0 ? (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {activeReceivedRequests.map((request) => renderRequestCard(request))}
         </div>
       ) : (
@@ -1775,7 +1898,7 @@ export default function Home() {
       </div>
 
       {sentDisplayItems.length > 0 ? (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {sentDisplayItems.map((item) => renderSentCard(item))}
         </div>
       ) : (
@@ -1857,7 +1980,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_30%),linear-gradient(to_bottom,_#f8fafc,_#eef2f7)] text-slate-900">
       <div className="flex min-h-screen">
         <div className="hidden lg:block">
           <Sidebar />
@@ -1877,7 +2000,7 @@ export default function Home() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
             <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
                 <button
@@ -1890,26 +2013,26 @@ export default function Home() {
 
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                    Work-Hub
+                    WORK-HUB
                   </p>
-                  <h1 className="text-lg font-semibold text-slate-900">
+                  <h1 className="text-2xl font-bold leading-tight text-slate-900">
                     業務管理アプリ
                   </h1>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="hidden rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-700 sm:block">
+                <div className="hidden rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm sm:block">
                   {currentUserProfile?.name?.trim() || user.email}
                 </div>
 
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   <LogoutIcon />
-                  <span className="hidden sm:inline">ログアウト</span>
+                  <span className="hidden sm:inline">Logout</span>
                 </button>
               </div>
             </div>
