@@ -22,6 +22,29 @@ type UserItem = {
   email: string | null
   name: string | null
   role: string | null
+  last_login_at?: string | null
+  is_active?: boolean | null
+}
+
+type UserSettingsItem = {
+  id: string
+  user_id: string
+  default_view: 'dashboard' | 'received' | 'sent' | 'history' | 'links'
+  notification_enabled: boolean
+  mobile_grouped_layout: boolean
+  created_at: string
+  updated_at: string
+}
+
+type ActivityLogItem = {
+  id: string
+  user_id: string | null
+  user_name: string | null
+  action: string
+  target_type: string
+  target_id: string | null
+  detail: string | null
+  created_at: string
 }
 
 type LinkGroupItem = {
@@ -43,7 +66,7 @@ type LinkItem = {
   updated_at: string
 }
 
-type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links'
+type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links' | 'settings'
 
 type SentDisplayItem =
   | {
@@ -552,6 +575,25 @@ function LinkListIcon() {
   )
 }
 
+function SettingsIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8.91 4.6H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.36.58.93.94 1.6 1H21a2 2 0 1 1 0 4h-.09c-.67.06-1.24.42-1.51 1Z" />
+    </svg>
+  )
+}
+
 function DotAlertIcon() {
   return (
     <svg
@@ -613,9 +655,12 @@ export default function Home() {
   const [users, setUsers] = useState<UserItem[]>([])
   const [linkGroups, setLinkGroups] = useState<LinkGroupItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
+  const [userSettings, setUserSettings] = useState<UserSettingsItem | null>(null)
+  const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [linkSubmitting, setLinkSubmitting] = useState(false)
+  const [settingsSubmitting, setSettingsSubmitting] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkCreateOpen, setLinkCreateOpen] = useState(false)
@@ -653,6 +698,10 @@ export default function Home() {
   const [editLinkUrl, setEditLinkUrl] = useState('')
   const [editLinkGroupId, setEditLinkGroupId] = useState('')
 
+  const [settingsDefaultView, setSettingsDefaultView] = useState<ViewKey>('dashboard')
+  const [settingsNotificationEnabled, setSettingsNotificationEnabled] = useState(true)
+  const [settingsMobileGroupedLayout, setSettingsMobileGroupedLayout] = useState(true)
+
   const currentUserId = user?.id ?? null
 
   useEffect(() => {
@@ -689,6 +738,44 @@ export default function Home() {
     }
   }, [activeView])
 
+  const currentUserProfile = useMemo(() => {
+    return users.find((item) => item.id === currentUserId)
+  }, [users, currentUserId])
+
+  const isAdmin = useMemo(() => {
+    return currentUserProfile?.role === 'admin'
+  }, [currentUserProfile])
+
+  useEffect(() => {
+    if (!currentUserId) return
+
+    fetchUserSettings()
+  }, [currentUserId])
+
+  useEffect(() => {
+    if (!currentUserId) return
+
+    const syncLastLoginAt = async () => {
+      const { error } = await supabase
+        .from('users')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', currentUserId)
+
+      if (error) {
+        console.warn('last_login_at更新スキップ:', error.message)
+        return
+      }
+
+      fetchUsers()
+    }
+
+    syncLastLoginAt()
+  }, [currentUserId])
+
+  useEffect(() => {
+    fetchActivityLogs()
+  }, [currentUserId, isAdmin])
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -708,7 +795,7 @@ export default function Home() {
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role')
+      .select('id, email, name, role, last_login_at, is_active')
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -771,6 +858,55 @@ export default function Home() {
     setLinks((data as LinkItem[]) ?? [])
   }
 
+  const fetchUserSettings = async () => {
+    if (!currentUserId) {
+      setUserSettings(null)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select(
+        'id, user_id, default_view, notification_enabled, mobile_grouped_layout, created_at, updated_at'
+      )
+      .eq('user_id', currentUserId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('user_settings取得エラー:', error)
+      return
+    }
+
+    const next = (data as UserSettingsItem | null) ?? null
+    setUserSettings(next)
+
+    if (next) {
+      setSettingsDefaultView(next.default_view)
+      setSettingsNotificationEnabled(next.notification_enabled)
+      setSettingsMobileGroupedLayout(next.mobile_grouped_layout)
+    }
+  }
+
+  const fetchActivityLogs = async () => {
+    if (!currentUserId || !isAdmin) {
+      setActivityLogs([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('id, user_id, user_name, action, target_type, target_id, detail, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) {
+      console.error('activity_logs取得エラー:', error)
+      return
+    }
+
+    setActivityLogs((data as ActivityLogItem[]) ?? [])
+  }
+
   const refreshLinksData = async () => {
     await Promise.all([fetchLinkGroups(), fetchLinks()])
   }
@@ -790,13 +926,15 @@ export default function Home() {
     fetchLinks()
   }, [currentUserId])
 
-  const currentUserProfile = useMemo(() => {
-    return users.find((item) => item.id === currentUserId)
-  }, [users, currentUserId])
+  useEffect(() => {
+    if (!userSettings) return
+    if (activeView !== 'dashboard') return
 
-  const isAdmin = useMemo(() => {
-    return currentUserProfile?.role === 'admin'
-  }, [currentUserProfile])
+    const nextDefaultView = userSettings.default_view
+    if (nextDefaultView && nextDefaultView !== 'dashboard') {
+      setActiveView(nextDefaultView)
+    }
+  }, [userSettings])
 
   const userMap = useMemo(() => {
     return new Map(users.map((item) => [item.id, item]))
@@ -1634,6 +1772,88 @@ export default function Home() {
     fetchRequests()
   }
 
+  const handleSaveUserSettings = async () => {
+    if (!currentUserId) return
+
+    setSettingsSubmitting(true)
+
+    const payload = {
+      user_id: currentUserId,
+      default_view: settingsDefaultView === 'settings' ? 'dashboard' : settingsDefaultView,
+      notification_enabled: settingsNotificationEnabled,
+      mobile_grouped_layout: settingsMobileGroupedLayout,
+    }
+
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert(payload, { onConflict: 'user_id' })
+
+    if (error) {
+      console.error('user_settings保存エラー:', error)
+      alert('設定の保存に失敗しました。')
+      setSettingsSubmitting(false)
+      return
+    }
+
+    await fetchUserSettings()
+    setSettingsSubmitting(false)
+    alert('設定を保存しました。')
+  }
+
+  const handleRoleChange = async (targetUserId: string, nextRole: string) => {
+    if (!isAdmin) return
+
+    const { error } = await supabase
+      .from('users')
+      .update({ role: nextRole })
+      .eq('id', targetUserId)
+
+    if (error) {
+      console.error('ロール変更エラー:', error)
+      alert('ロール変更に失敗しました。')
+      return
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: currentUserId,
+      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
+      action: 'role_updated',
+      target_type: 'user',
+      target_id: targetUserId,
+      detail: `roleを${nextRole}に変更`,
+    })
+
+    fetchUsers()
+    fetchActivityLogs()
+  }
+
+  const handleToggleUserActive = async (targetUserId: string, nextValue: boolean) => {
+    if (!isAdmin) return
+
+    const { error } = await supabase
+      .from('users')
+      .update({ is_active: nextValue })
+      .eq('id', targetUserId)
+
+    if (error) {
+      console.error('利用状態変更エラー:', error)
+      alert('利用状態の更新に失敗しました。')
+      return
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: currentUserId,
+      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
+      action: 'user_status_updated',
+      target_type: 'user',
+      target_id: targetUserId,
+      detail: nextValue ? '有効化' : '停止',
+    })
+
+    fetchUsers()
+    fetchActivityLogs()
+  }
+
   const menuItems: Array<{
     key: ViewKey
     label: string
@@ -1644,6 +1864,7 @@ export default function Home() {
     { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
     { key: 'history', label: '履歴', icon: <HistoryIcon /> },
     { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
+    { key: 'settings', label: '設定', icon: <SettingsIcon /> },
   ]
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -3291,6 +3512,246 @@ export default function Home() {
 
 
 
+  const renderSettings = () => {
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">設定</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {isAdmin
+                ? 'アカウント管理・通知設定・利用状況確認を行えます'
+                : 'アカウント情報・表示設定・通知設定を変更できます'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            <LogoutIcon />
+            ログアウト
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-base font-semibold text-slate-900">アカウント情報</p>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium text-slate-500">名前</p>
+                <p className="mt-1 font-semibold text-slate-900">{currentUserProfile?.name || '未設定'}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium text-slate-500">メール</p>
+                <p className="mt-1 break-all font-semibold text-slate-900">{currentUserProfile?.email || user?.email || '未取得'}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium text-slate-500">権限</p>
+                <p className="mt-1 font-semibold text-slate-900">{isAdmin ? '管理者' : 'パートナー'}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-medium text-slate-500">最終ログイン</p>
+                <p className="mt-1 font-semibold text-slate-900">{formatDateTime(currentUserProfile?.last_login_at)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-base font-semibold text-slate-900">表示設定</p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">初期表示画面</label>
+                <select
+                  value={settingsDefaultView}
+                  onChange={(event) => setSettingsDefaultView(event.target.value as ViewKey)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="dashboard">ダッシュボード</option>
+                  <option value="received">受信依頼</option>
+                  <option value="sent">送信依頼</option>
+                  <option value="history">履歴</option>
+                  <option value="links">リンク一覧</option>
+                </select>
+              </div>
+
+              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">スマホでグループ単位表示</p>
+                  <p className="mt-1 text-xs text-slate-500">リンク一覧を縦並びで見やすく表示します</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settingsMobileGroupedLayout}
+                  onChange={(event) => setSettingsMobileGroupedLayout(event.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-base font-semibold text-slate-900">通知設定</p>
+            <div className="mt-4 space-y-4">
+              <label className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">通知表示</p>
+                  <p className="mt-1 text-xs text-slate-500">未確認・期限切れを画面内で強調表示します</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settingsNotificationEnabled}
+                  onChange={(event) => setSettingsNotificationEnabled(event.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={handleSaveUserSettings}
+                disabled={settingsSubmitting}
+                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {settingsSubmitting ? '保存中...' : '設定を保存する'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {isAdmin && (
+          <>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+              <div className="xl:col-span-2 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">アカウント管理</p>
+                    <p className="mt-1 text-sm text-slate-500">ロール変更・利用状態を管理できます</p>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {users.length}名
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                  {users.map((item) => (
+                    <div key={item.id} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
+                      <p className="mt-1 break-all text-xs text-slate-500">{item.email || 'メール未設定'}</p>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">ロール</label>
+                          <select
+                            value={item.role ?? 'user'}
+                            onChange={(event) => handleRoleChange(item.id, event.target.value)}
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition focus:border-slate-400"
+                          >
+                            <option value="admin">admin</option>
+                            <option value="user">user</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                          <div>
+                            <p className="text-xs font-medium text-slate-500">利用状態</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">{item.is_active === false ? '停止中' : '利用中'}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleUserActive(item.id, item.is_active === false)}
+                            className={cn(
+                              'inline-flex h-11 min-w-[96px] items-center justify-center rounded-2xl px-4 text-sm font-semibold transition',
+                              item.is_active === false
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                                : 'bg-slate-900 text-white hover:bg-slate-800'
+                            )}
+                          >
+                            {item.is_active === false ? '再開' : '停止'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-base font-semibold text-slate-900">利用状況確認</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-medium text-slate-500">全ユーザー数</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-medium text-slate-500">利用中ユーザー</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.filter((item) => item.is_active !== false).length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 px-4 py-4">
+                    <p className="text-xs font-medium text-slate-500">管理者数</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{users.filter((item) => item.role === 'admin').length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <p className="text-base font-semibold text-slate-900">最終ログイン確認</p>
+                <div className="mt-4 space-y-3">
+                  {users.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{getUserLabel(item)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{item.role === 'admin' ? 'admin' : 'user'}</p>
+                      </div>
+                      <p className="shrink-0 text-xs font-medium text-slate-600">{formatDateTime(item.last_login_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-base font-semibold text-slate-900">アクティビティログ確認</p>
+                    <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchActivityLogs}
+                    className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    更新
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {activityLogs.length > 0 ? (
+                    activityLogs.map((log) => (
+                      <div key={log.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-900">{log.user_name || '不明ユーザー'}</p>
+                          <p className="text-xs text-slate-500">{formatDateTime(log.created_at)}</p>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-700">
+                          {log.action} / {log.target_type}
+                        </p>
+                        {log.detail && <p className="mt-1 text-xs text-slate-500">{log.detail}</p>}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+                      表示できるログがありません。
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -3396,6 +3857,7 @@ export default function Home() {
               {!createFormOpen && activeView === 'sent' && renderSent()}
               {!createFormOpen && activeView === 'history' && renderHistory()}
               {!createFormOpen && activeView === 'links' && renderLinks()}
+              {!createFormOpen && activeView === 'settings' && renderSettings()}
             </div>
           </div>
         </div>
