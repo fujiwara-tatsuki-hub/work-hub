@@ -597,8 +597,10 @@ export default function Home() {
   const [links, setLinks] = useState<LinkItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [linkSubmitting, setLinkSubmitting] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [linkCreateOpen, setLinkCreateOpen] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] =
@@ -612,6 +614,13 @@ export default function Home() {
   const [status, setStatus] = useState('未確認')
   const [priority, setPriority] = useState('中')
   const [deadline, setDeadline] = useState('')
+
+  const [newParentGroupName, setNewParentGroupName] = useState('')
+  const [newChildGroupName, setNewChildGroupName] = useState('')
+  const [childParentGroupId, setChildParentGroupId] = useState('')
+  const [newLinkTitle, setNewLinkTitle] = useState('')
+  const [newLinkUrl, setNewLinkUrl] = useState('')
+  const [newLinkGroupId, setNewLinkGroupId] = useState('')
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
@@ -726,6 +735,10 @@ export default function Home() {
     }
 
     setLinks((data as LinkItem[]) ?? [])
+  }
+
+  const refreshLinksData = async () => {
+    await Promise.all([fetchLinkGroups(), fetchLinks()])
   }
 
   useEffect(() => {
@@ -876,10 +889,6 @@ export default function Home() {
     }
   }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests])
 
-  const linkGroupsMap = useMemo(() => {
-    return new Map(linkGroups.map((group) => [group.id, group]))
-  }, [linkGroups])
-
   const filteredLinks = useMemo(() => {
     const keyword = linkSearch.trim().toLowerCase()
     if (!keyword) return links
@@ -965,6 +974,20 @@ export default function Home() {
     })
   }, [rootLinkGroups, linksByGroupId, childGroupsMap])
 
+  const allGroupOptions = useMemo(() => {
+    const result: Array<{ id: string; label: string }> = []
+
+    rootLinkGroups.forEach((parent) => {
+      result.push({ id: parent.id, label: parent.name })
+      const children = childGroupsMap.get(parent.id) ?? []
+      children.forEach((child) => {
+        result.push({ id: child.id, label: `└ ${child.name}` })
+      })
+    })
+
+    return result
+  }, [rootLinkGroups, childGroupsMap])
+
   const resetForm = () => {
     setTitle('')
     setContent('')
@@ -974,6 +997,15 @@ export default function Home() {
     setDeadline('')
     setEditingId(null)
     setUserSearch('')
+  }
+
+  const resetLinkCreateForm = () => {
+    setNewParentGroupName('')
+    setNewChildGroupName('')
+    setChildParentGroupId('')
+    setNewLinkTitle('')
+    setNewLinkUrl('')
+    setNewLinkGroupId('')
   }
 
   const handleToggleRecipient = (id: string) => {
@@ -1079,6 +1111,124 @@ export default function Home() {
       alert('保存に失敗しました。')
       setSubmitting(false)
     }
+  }
+
+  const handleCreateParentGroup = async () => {
+    if (!isAdmin) return
+
+    const trimmed = newParentGroupName.trim()
+    if (!trimmed) {
+      alert('親グループ名を入力してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const maxSortOrder =
+      rootLinkGroups.length > 0
+        ? Math.max(...rootLinkGroups.map((group) => group.sort_order))
+        : -1
+
+    const { error } = await supabase.from('link_groups').insert({
+      name: trimmed,
+      parent_id: null,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('親グループ作成エラー:', error)
+      alert('親グループの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    setNewParentGroupName('')
+    await refreshLinksData()
+    setLinkSubmitting(false)
+  }
+
+  const handleCreateChildGroup = async () => {
+    if (!isAdmin) return
+
+    const trimmed = newChildGroupName.trim()
+    if (!trimmed) {
+      alert('子グループ名を入力してください。')
+      return
+    }
+
+    if (!childParentGroupId) {
+      alert('親グループを選択してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const siblingChildGroups = linkGroups.filter(
+      (group) => group.parent_id === childParentGroupId
+    )
+    const maxSortOrder =
+      siblingChildGroups.length > 0
+        ? Math.max(...siblingChildGroups.map((group) => group.sort_order))
+        : -1
+
+    const { error } = await supabase.from('link_groups').insert({
+      name: trimmed,
+      parent_id: childParentGroupId,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('子グループ作成エラー:', error)
+      alert('子グループの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    setNewChildGroupName('')
+    await refreshLinksData()
+    setLinkSubmitting(false)
+  }
+
+  const handleCreateLink = async () => {
+    if (!isAdmin) return
+
+    const trimmedTitle = newLinkTitle.trim()
+    const trimmedUrl = newLinkUrl.trim()
+
+    if (!trimmedTitle || !trimmedUrl) {
+      alert('リンクタイトルとURLを入力してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const sameGroupLinks = links.filter(
+      (link) => (link.group_id ?? '') === (newLinkGroupId || '')
+    )
+    const maxSortOrder =
+      sameGroupLinks.length > 0
+        ? Math.max(...sameGroupLinks.map((link) => link.sort_order))
+        : -1
+
+    const { error } = await supabase.from('links').insert({
+      title: trimmedTitle,
+      url: trimmedUrl,
+      group_id: newLinkGroupId || null,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('リンク作成エラー:', error)
+      alert('リンクの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    setNewLinkTitle('')
+    setNewLinkUrl('')
+    setNewLinkGroupId('')
+    await refreshLinksData()
+    setLinkSubmitting(false)
   }
 
   const handleStartEdit = (request: RequestItem) => {
@@ -1762,6 +1912,177 @@ export default function Home() {
     </div>
   )
 
+  const renderAdminLinkCreatePanel = () => {
+    if (!isAdmin) return null
+
+    return (
+      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-lg font-semibold text-slate-900">新規作成</p>
+            <p className="mt-1 text-sm text-slate-500">
+              親グループ・子グループ・リンクを追加できます
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLinkCreateOpen((prev) => !prev)
+              if (linkCreateOpen) resetLinkCreateForm()
+            }}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+            {linkCreateOpen ? '閉じる' : '新規追加を開く'}
+          </button>
+        </div>
+
+        {linkCreateOpen && (
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <p className="text-base font-semibold text-slate-900">
+                親グループ作成
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                例：営業、社内ツール、媒体
+              </p>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  親グループ名
+                </label>
+                <input
+                  value={newParentGroupName}
+                  onChange={(event) => setNewParentGroupName(event.target.value)}
+                  placeholder="親グループ名を入力"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCreateParentGroup}
+                disabled={linkSubmitting}
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {linkSubmitting ? '保存中...' : '親グループを追加'}
+              </button>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <p className="text-base font-semibold text-slate-900">
+                子グループ作成
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                親グループの下に作成します
+              </p>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  親グループ
+                </label>
+                <select
+                  value={childParentGroupId}
+                  onChange={(event) => setChildParentGroupId(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="">選択してください</option>
+                  {rootLinkGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  子グループ名
+                </label>
+                <input
+                  value={newChildGroupName}
+                  onChange={(event) => setNewChildGroupName(event.target.value)}
+                  placeholder="子グループ名を入力"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCreateChildGroup}
+                disabled={linkSubmitting}
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {linkSubmitting ? '保存中...' : '子グループを追加'}
+              </button>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <p className="text-base font-semibold text-slate-900">
+                リンク作成
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                グループを選んでリンクを追加します
+              </p>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  所属グループ
+                </label>
+                <select
+                  value={newLinkGroupId}
+                  onChange={(event) => setNewLinkGroupId(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="">未分類</option>
+                  {allGroupOptions.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  リンクタイトル
+                </label>
+                <input
+                  value={newLinkTitle}
+                  onChange={(event) => setNewLinkTitle(event.target.value)}
+                  placeholder="例：マイコネクト"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  URL
+                </label>
+                <input
+                  value={newLinkUrl}
+                  onChange={(event) => setNewLinkUrl(event.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCreateLink}
+                disabled={linkSubmitting}
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {linkSubmitting ? '保存中...' : 'リンクを追加'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderRecentSentCard = (item: SentDisplayItem) => {
     const hasOverdueUnconfirmed =
       item.type === 'single'
@@ -2153,10 +2474,11 @@ export default function Home() {
             <p className="mt-1 text-xs text-slate-500">親グループ</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-            {ownLinks.length + visibleChildGroups.reduce((sum, child) => {
-              const childLinks = linksByGroupId.get(child.id) ?? []
-              return sum + childLinks.length
-            }, 0)}{' '}
+            {ownLinks.length +
+              visibleChildGroups.reduce((sum, child) => {
+                const childLinks = linksByGroupId.get(child.id) ?? []
+                return sum + childLinks.length
+              }, 0)}{' '}
             件
           </span>
         </div>
@@ -2280,7 +2602,7 @@ export default function Home() {
               権限について
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              閲覧は全員可能。追加・編集・削除・並び替えは次で管理者のみ実装します。
+              閲覧は全員可能。追加機能は管理者のみ使えます。
             </p>
           </div>
           <span
@@ -2295,6 +2617,8 @@ export default function Home() {
           </span>
         </div>
       </div>
+
+      {renderAdminLinkCreatePanel()}
 
       {visibleRootGroups.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
