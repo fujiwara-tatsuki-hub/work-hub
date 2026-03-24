@@ -624,6 +624,7 @@ export default function Home() {
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
+  const [selectedLinkGroupId, setSelectedLinkGroupId] = useState<string | null>(null)
 
   const currentUserId = user?.id ?? null
 
@@ -652,6 +653,12 @@ export default function Home() {
   useEffect(() => {
     if (activeView === 'history') {
       setHistoryOpen(true)
+    }
+  }, [activeView])
+
+  useEffect(() => {
+    if (activeView !== 'links') {
+      setSelectedLinkGroupId(null)
     }
   }, [activeView])
 
@@ -1231,6 +1238,124 @@ export default function Home() {
     setLinkSubmitting(false)
   }
 
+  const handleEditLinkGroup = async (group: LinkGroupItem) => {
+    if (!isAdmin) return
+
+    const nextName = window.prompt('グループ名を入力してください。', group.name)?.trim()
+    if (!nextName || nextName === group.name) return
+
+    const { error } = await supabase
+      .from('link_groups')
+      .update({ name: nextName })
+      .eq('id', group.id)
+
+    if (error) {
+      console.error('グループ編集エラー:', error)
+      alert('グループ名の更新に失敗しました。')
+      return
+    }
+
+    await refreshLinksData()
+  }
+
+  const handleDeleteLinkGroup = async (group: LinkGroupItem) => {
+    if (!isAdmin) return
+
+    const childGroups = linkGroups.filter((item) => item.parent_id === group.id)
+    const targetGroupIds = [group.id, ...childGroups.map((item) => item.id)]
+
+    const confirmed = window.confirm(
+      childGroups.length > 0
+        ? 'この親グループを削除すると、子グループと配下リンクも削除されます。削除しますか？'
+        : 'このグループと配下リンクを削除しますか？'
+    )
+    if (!confirmed) return
+
+    const { error: linksError } = await supabase
+      .from('links')
+      .delete()
+      .in('group_id', targetGroupIds)
+
+    if (linksError) {
+      console.error('リンク削除エラー:', linksError)
+      alert('グループ配下のリンク削除に失敗しました。')
+      return
+    }
+
+    if (childGroups.length > 0) {
+      const { error: childError } = await supabase
+        .from('link_groups')
+        .delete()
+        .in('id', childGroups.map((item) => item.id))
+
+      if (childError) {
+        console.error('子グループ削除エラー:', childError)
+        alert('子グループの削除に失敗しました。')
+        return
+      }
+    }
+
+    const { error } = await supabase
+      .from('link_groups')
+      .delete()
+      .eq('id', group.id)
+
+    if (error) {
+      console.error('グループ削除エラー:', error)
+      alert('グループの削除に失敗しました。')
+      return
+    }
+
+    if (selectedLinkGroupId === group.id) {
+      setSelectedLinkGroupId(null)
+    }
+
+    await refreshLinksData()
+  }
+
+  const handleEditLink = async (link: LinkItem) => {
+    if (!isAdmin) return
+
+    const nextTitle = window.prompt('リンク名を入力してください。', link.title)?.trim()
+    if (!nextTitle) return
+
+    const nextUrl = window.prompt('URLを入力してください。', link.url)?.trim()
+    if (!nextUrl) return
+
+    const { error } = await supabase
+      .from('links')
+      .update({
+        title: nextTitle,
+        url: nextUrl,
+      })
+      .eq('id', link.id)
+
+    if (error) {
+      console.error('リンク編集エラー:', error)
+      alert('リンクの更新に失敗しました。')
+      return
+    }
+
+    await refreshLinksData()
+  }
+
+  const handleDeleteLink = async (linkId: string) => {
+    if (!isAdmin) return
+
+    const confirmed = window.confirm('このリンクを削除しますか？')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('links').delete().eq('id', linkId)
+
+    if (error) {
+      console.error('リンク削除エラー:', error)
+      alert('リンクの削除に失敗しました。')
+      return
+    }
+
+    await refreshLinksData()
+  }
+
   const handleStartEdit = (request: RequestItem) => {
     setEditingId(request.id)
     setTitle(request.title)
@@ -1376,7 +1501,7 @@ export default function Home() {
                 {user?.email || 'メール未取得'}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                権限：{isAdmin ? '管理者' : '一般ユーザー'}
+                権限：{isAdmin ? '管理者' : 'パートナー'}
               </p>
             </>
           )}
@@ -1917,29 +2042,7 @@ export default function Home() {
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-lg font-semibold text-slate-900">新規作成</p>
-            <p className="mt-1 text-sm text-slate-500">
-              親グループ・子グループ・リンクを追加できます
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setLinkCreateOpen((prev) => !prev)
-              if (linkCreateOpen) resetLinkCreateForm()
-            }}
-            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
-            {linkCreateOpen ? '閉じる' : '新規追加を開く'}
-          </button>
-        </div>
-
-        {linkCreateOpen && (
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
               <p className="text-base font-semibold text-slate-900">
                 親グループ作成
@@ -2078,7 +2181,6 @@ export default function Home() {
               </button>
             </div>
           </div>
-        )}
       </div>
     )
   }
@@ -2455,220 +2557,283 @@ export default function Home() {
     </div>
   )
 
-  const renderLinkCard = (group: LinkGroupItem) => {
-    const ownLinks = linksByGroupId.get(group.id) ?? []
-    const childGroups = childGroupsMap.get(group.id) ?? []
-    const visibleChildGroups = childGroups.filter((child) => {
-      const childLinks = linksByGroupId.get(child.id) ?? []
-      return childLinks.length > 0
-    })
-
-    return (
-      <div
-        key={group.id}
-        className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm"
+  const renderLinkRow = (link: LinkItem) => (
+    <div
+      key={link.id}
+      className="flex items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:bg-slate-50"
+    >
+      <a
+        href={link.url}
+        target="_blank"
+        rel="noreferrer"
+        className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 hover:text-blue-600"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-lg font-semibold text-slate-900">{group.name}</p>
-            <p className="mt-1 text-xs text-slate-500">親グループ</p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-            {ownLinks.length +
-              visibleChildGroups.reduce((sum, child) => {
-                const childLinks = linksByGroupId.get(child.id) ?? []
-                return sum + childLinks.length
-              }, 0)}{' '}
-            件
-          </span>
-        </div>
+        {link.title}
+      </a>
 
-        {ownLinks.length > 0 && (
-          <div className="mt-5">
-            <p className="mb-2 text-sm font-semibold text-slate-800">
-              このグループのリンク
-            </p>
-            <div className="space-y-2">
-              {ownLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-900">
-                      {link.title}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      {link.url}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-slate-500">
-                    <ExternalLinkIcon />
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {visibleChildGroups.length > 0 && (
-          <div className="mt-5 space-y-4">
-            {visibleChildGroups.map((child) => {
-              const childLinks = linksByGroupId.get(child.id) ?? []
-
-              return (
-                <div
-                  key={child.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">
-                        {child.name}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        子グループ
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                      {childLinks.length}件
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {childLinks.map((link) => (
-                      <a
-                        key={link.id}
-                        href={link.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-900">
-                            {link.title}
-                          </p>
-                          <p className="mt-1 truncate text-xs text-slate-500">
-                            {link.url}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-slate-500">
-                          <ExternalLinkIcon />
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderLinks = () => (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">リンク一覧</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            全員共通のリンクをグループ単位で表示します
-          </p>
-        </div>
-
-        <div className="w-full max-w-md">
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <SearchIcon />
-            </span>
-            <input
-              value={linkSearch}
-              onChange={(event) => setLinkSearch(event.target.value)}
-              placeholder="タイトルで検索"
-              className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900">
-              権限について
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              閲覧は全員可能。追加機能は管理者のみ使えます。
-            </p>
-          </div>
-          <span
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-semibold',
-              isAdmin
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-slate-100 text-slate-700'
-            )}
+      {isAdmin && (
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleEditLink(link)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+            title="編集"
           >
-            {isAdmin ? '管理者でログイン中' : '一般ユーザーでログイン中'}
-          </span>
-        </div>
-      </div>
-
-      {renderAdminLinkCreatePanel()}
-
-      {visibleRootGroups.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {visibleRootGroups.map((group) => renderLinkCard(group))}
-        </div>
-      ) : (
-        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          該当するリンクがありません。
-        </div>
-      )}
-
-      {ungroupedLinks.length > 0 && (
-        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-lg font-semibold text-slate-900">その他</p>
-              <p className="mt-1 text-xs text-slate-500">未分類のリンク</p>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              {ungroupedLinks.length}件
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            {ungroupedLinks.map((link) => (
-              <a
-                key={link.id}
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm transition hover:bg-slate-100"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">
-                    {link.title}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    {link.url}
-                  </p>
-                </div>
-                <span className="shrink-0 text-slate-500">
-                  <ExternalLinkIcon />
-                </span>
-              </a>
-            ))}
-          </div>
+            <EditIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteLink(link.id)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+            title="削除"
+          >
+            <TrashIcon />
+          </button>
         </div>
       )}
     </div>
   )
+
+  const renderLinks = () => {
+    if (!selectedLinkGroupId) {
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">リンク一覧</h2>
+            </div>
+
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <div className="w-full sm:w-[320px]">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <SearchIcon />
+                  </span>
+                  <input
+                    value={linkSearch}
+                    onChange={(event) => setLinkSearch(event.target.value)}
+                    placeholder="タイトルで検索"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkCreateOpen((prev) => !prev)
+                    if (linkCreateOpen) resetLinkCreateForm()
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                  {linkCreateOpen ? '閉じる' : '追加'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isAdmin && linkCreateOpen && renderAdminLinkCreatePanel()}
+
+          {visibleRootGroups.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleRootGroups.map((group) => (
+                <div
+                  key={group.id}
+                  className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLinkGroupId(group.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+                          <LinkListIcon />
+                        </span>
+                        <p className="truncate text-base font-semibold text-slate-900">
+                          {group.name}
+                        </p>
+                      </div>
+                    </button>
+
+                    {isAdmin && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEditLinkGroup(group)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                          title="編集"
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLinkGroup(group)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                          title="削除"
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+              該当するリンクがありません。
+            </div>
+          )}
+
+          {ungroupedLinks.length > 0 && (
+            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold text-slate-900">その他</p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {ungroupedLinks.map((link) => renderLinkRow(link))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    const selectedGroup = linkGroups.find((group) => group.id === selectedLinkGroupId)
+    const selectedChildGroups = childGroupsMap.get(selectedLinkGroupId) ?? []
+    const selectedOwnLinks = linksByGroupId.get(selectedLinkGroupId) ?? []
+
+    if (!selectedGroup) {
+      return (
+        <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+          グループが見つかりません。
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <button
+              type="button"
+              onClick={() => setSelectedLinkGroupId(null)}
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+            >
+              <span>←</span>
+              <span>戻る</span>
+            </button>
+            <h2 className="mt-3 text-xl font-semibold text-slate-900">
+              {selectedGroup.name}
+            </h2>
+          </div>
+
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <div className="w-full sm:w-[320px]">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <SearchIcon />
+                </span>
+                <input
+                  value={linkSearch}
+                  onChange={(event) => setLinkSearch(event.target.value)}
+                  placeholder="タイトルで検索"
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+            </div>
+
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEditLinkGroup(selectedGroup)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                  title="編集"
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteLinkGroup(selectedGroup)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                  title="削除"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isAdmin && linkCreateOpen && renderAdminLinkCreatePanel()}
+
+        {selectedOwnLinks.length > 0 && (
+          <div className="space-y-2">
+            {selectedOwnLinks.map((link) => renderLinkRow(link))}
+          </div>
+        )}
+
+        {selectedChildGroups.map((child) => {
+          const childLinks = linksByGroupId.get(child.id) ?? []
+          if (childLinks.length === 0) return null
+
+          return (
+            <div
+              key={child.id}
+              className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="truncate text-base font-semibold text-slate-900">
+                  {child.name}
+                </p>
+
+                {isAdmin && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditLinkGroup(child)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                      title="編集"
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLinkGroup(child)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                      title="削除"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {childLinks.map((link) => renderLinkRow(link))}
+              </div>
+            </div>
+          )
+        })}
+
+        {selectedOwnLinks.length === 0 &&
+          selectedChildGroups.every((child) => (linksByGroupId.get(child.id) ?? []).length === 0) && (
+            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+              該当するリンクがありません。
+            </div>
+          )}
+      </div>
+    )
+  }
+
 
   if (loading) {
     return (
