@@ -792,6 +792,32 @@ export default function Home() {
     await supabase.auth.signOut()
   }
 
+  const logActivity = async (
+    action: string,
+    targetType: string,
+    targetId: string | null,
+    detail: string
+  ) => {
+    if (!currentUserId) return
+
+    const { error } = await supabase.from('activity_logs').insert({
+      user_id: currentUserId,
+      user_name:
+        currentUserProfile?.name ||
+        currentUserProfile?.email ||
+        user?.email ||
+        '不明ユーザー',
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      detail,
+    })
+
+    if (error) {
+      console.error('activity_logs記録エラー:', error)
+    }
+  }
+
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from('users')
@@ -1255,6 +1281,13 @@ export default function Home() {
           return
         }
 
+        await logActivity(
+          'request_updated',
+          'request',
+          editingId,
+          `${trimmedTitle} を更新`
+        )
+
         resetForm()
         setCreateFormOpen(false)
         setSubmitting(false)
@@ -1286,6 +1319,13 @@ export default function Home() {
         setSubmitting(false)
         return
       }
+
+      await logActivity(
+        'request_created',
+        'request',
+        null,
+        `${trimmedTitle} を作成（${recipientIds.length}名に送信）`
+      )
 
       resetForm()
       setCreateFormOpen(false)
@@ -1326,6 +1366,13 @@ export default function Home() {
       setLinkSubmitting(false)
       return
     }
+
+    await logActivity(
+      'link_group_created',
+      'link_group',
+      null,
+      `親グループ ${trimmed} を作成`
+    )
 
     setNewParentGroupName('')
     await refreshLinksData()
@@ -1369,6 +1416,13 @@ export default function Home() {
       return
     }
 
+    await logActivity(
+      'link_group_created',
+      'link_group',
+      null,
+      `子グループ ${trimmed} を作成`
+    )
+
     setNewChildGroupName('')
     await refreshLinksData()
     setLinkSubmitting(false)
@@ -1408,6 +1462,13 @@ export default function Home() {
       setLinkSubmitting(false)
       return
     }
+
+    await logActivity(
+      'link_created',
+      'link',
+      null,
+      `${trimmedTitle} を作成`
+    )
 
     setNewLinkTitle('')
     setNewLinkUrl('')
@@ -1475,6 +1536,13 @@ export default function Home() {
       return
     }
 
+    await logActivity(
+      'link_group_updated',
+      'link_group',
+      editingLinkGroupTarget.id,
+      `${editingLinkGroupTarget.name} を ${trimmedName} に更新`
+    )
+
     closeLinkGroupEditModal()
     await refreshLinksData()
   }
@@ -1526,6 +1594,13 @@ export default function Home() {
       alert('グループの削除に失敗しました。')
       return
     }
+
+    await logActivity(
+      'link_group_deleted',
+      'link_group',
+      group.id,
+      `${group.name} を削除`
+    )
 
     if (selectedLinkGroupId === group.id) {
       setSelectedLinkGroupId(null)
@@ -1590,6 +1665,13 @@ export default function Home() {
       alert('リンクの更新に失敗しました。')
       return
     }
+
+    await logActivity(
+      'link_updated',
+      'link',
+      editingLinkTarget.id,
+      `${editingLinkTarget.title} を ${trimmedTitle} に更新`
+    )
 
     closeLinkEditModal()
     await refreshLinksData()
@@ -1699,6 +1781,7 @@ export default function Home() {
   const handleDeleteLink = async (linkId: string) => {
     if (!isAdmin) return
 
+    const targetLink = links.find((item) => item.id === linkId)
     const confirmed = window.confirm('このリンクを削除しますか？')
     if (!confirmed) return
 
@@ -1709,6 +1792,13 @@ export default function Home() {
       alert('リンクの削除に失敗しました。')
       return
     }
+
+    await logActivity(
+      'link_deleted',
+      'link',
+      linkId,
+      targetLink ? `${targetLink.title} を削除` : 'リンクを削除'
+    )
 
     await refreshLinksData()
   }
@@ -1730,6 +1820,8 @@ export default function Home() {
     const confirmed = window.confirm('この依頼を削除しますか？')
     if (!confirmed) return
 
+    const targetRequest = requests.find((item) => item.id === requestId)
+
     const { error } = await supabase
       .from('requests')
       .delete()
@@ -1740,6 +1832,13 @@ export default function Home() {
       alert('削除に失敗しました。')
       return
     }
+
+    await logActivity(
+      'request_deleted',
+      'request',
+      requestId,
+      targetRequest ? `${targetRequest.title} を削除` : '依頼を削除'
+    )
 
     fetchRequests()
   }
@@ -1768,6 +1867,13 @@ export default function Home() {
       alert('ステータス更新に失敗しました。')
       return
     }
+
+    await logActivity(
+      'request_status_updated',
+      'request',
+      requestId,
+      `ステータスを${nextStatus}に変更`
+    )
 
     fetchRequests()
   }
@@ -1814,14 +1920,12 @@ export default function Home() {
       return
     }
 
-    await supabase.from('activity_logs').insert({
-      user_id: currentUserId,
-      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
-      action: 'role_updated',
-      target_type: 'user',
-      target_id: targetUserId,
-      detail: `roleを${nextRole}に変更`,
-    })
+    await logActivity(
+      'role_updated',
+      'user',
+      targetUserId,
+      `roleを${nextRole}に変更`
+    )
 
     fetchUsers()
     fetchActivityLogs()
@@ -1841,14 +1945,12 @@ export default function Home() {
       return
     }
 
-    await supabase.from('activity_logs').insert({
-      user_id: currentUserId,
-      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
-      action: 'user_status_updated',
-      target_type: 'user',
-      target_id: targetUserId,
-      detail: nextValue ? '再開' : '停止',
-    })
+    await logActivity(
+      'user_status_updated',
+      'user',
+      targetUserId,
+      nextValue ? '再開' : '停止'
+    )
 
     fetchUsers()
     fetchActivityLogs()
@@ -1868,20 +1970,18 @@ export default function Home() {
     }
 
     const confirmed = window.confirm(
-      `${getUserLabel(targetUser)} を削除しますか？
+      `${getUserLabel(targetUser)} を削除しますか?
 
 この操作を行うと、アカウント管理一覧から対象ユーザーが消えます。`
     )
     if (!confirmed) return
 
-    await supabase.from('activity_logs').insert({
-      user_id: currentUserId,
-      user_name: currentUserProfile?.name || currentUserProfile?.email || '管理者',
-      action: 'user_deleted',
-      target_type: 'user',
-      target_id: targetUser.id,
-      detail: `${getUserLabel(targetUser)} を削除`,
-    })
+    await logActivity(
+      'user_deleted',
+      'user',
+      targetUser.id,
+      `${getUserLabel(targetUser)} を削除`
+    )
 
     const { error } = await supabase
       .from('users')
