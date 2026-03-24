@@ -900,6 +900,29 @@ export default function Home() {
     setRequests((data as RequestItem[]) ?? [])
   }
 
+  useEffect(() => {
+    if (!currentUserId || !effectiveUserId) return
+
+    const channel = supabase
+      .channel(`requests-realtime-${currentUserId}-${effectiveUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'requests',
+        },
+        async () => {
+          await fetchRequests()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUserId, effectiveUserId])
+
   const fetchLinkGroups = async () => {
     const { data, error } = await supabase
       .from('link_groups')
