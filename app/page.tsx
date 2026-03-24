@@ -1242,16 +1242,58 @@ export default function Home() {
     if (!isAdmin) return
 
     const nextName = window.prompt('グループ名を入力してください。', group.name)?.trim()
-    if (!nextName || nextName === group.name) return
+    if (!nextName) return
+
+    let nextParentId = group.parent_id
+
+    if (group.parent_id) {
+      const parentOptions = rootLinkGroups
+        .map((parent, index) => `${index + 1}. ${parent.name}`)
+        .join('\n')
+
+      const currentParent = rootLinkGroups.find(
+        (parent) => parent.id === group.parent_id
+      )
+
+      const parentInput = window.prompt(
+        `親グループを番号で選択してください。\n\n現在：${currentParent?.name ?? '未設定'}\n\n${parentOptions}`,
+        String(
+          Math.max(
+            1,
+            rootLinkGroups.findIndex((parent) => parent.id === group.parent_id) +
+              1
+          )
+        )
+      )
+
+      if (parentInput === null) return
+
+      const parentIndex = Number(parentInput)
+      if (
+        !Number.isInteger(parentIndex) ||
+        parentIndex < 1 ||
+        parentIndex > rootLinkGroups.length
+      ) {
+        alert('親グループの番号が不正です。')
+        return
+      }
+
+      nextParentId = rootLinkGroups[parentIndex - 1]?.id ?? group.parent_id
+    }
+
+    if (nextName === group.name && nextParentId === group.parent_id) return
 
     const { error } = await supabase
       .from('link_groups')
-      .update({ name: nextName })
+      .update({
+        name: nextName,
+        parent_id: nextParentId,
+      })
       .eq('id', group.id)
 
     if (error) {
       console.error('グループ編集エラー:', error)
-      alert('グループ名の更新に失敗しました。')
+      alert('グループの更新に失敗しました。')
       return
     }
 
@@ -1322,11 +1364,39 @@ export default function Home() {
     const nextUrl = window.prompt('URLを入力してください。', link.url)?.trim()
     if (!nextUrl) return
 
+    const groupOptions = [
+      '0. 未分類',
+      ...allGroupOptions.map((group, index) => `${index + 1}. ${group.label}`),
+    ].join('\n')
+
+    const currentGroupIndex = allGroupOptions.findIndex(
+      (group) => group.id === (link.group_id ?? '')
+    )
+
+    const groupInput = window.prompt(
+      `所属グループを番号で選択してください。\n\n現在：${
+        allGroupOptions[currentGroupIndex]?.label ?? '未分類'
+      }\n\n${groupOptions}`,
+      currentGroupIndex >= 0 ? String(currentGroupIndex + 1) : '0'
+    )
+
+    if (groupInput === null) return
+
+    const selectedIndex = Number(groupInput)
+    if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex > allGroupOptions.length) {
+      alert('所属グループの番号が不正です。')
+      return
+    }
+
+    const nextGroupId =
+      selectedIndex === 0 ? null : allGroupOptions[selectedIndex - 1]?.id ?? null
+
     const { error } = await supabase
       .from('links')
       .update({
         title: nextTitle,
         url: nextUrl,
+        group_id: nextGroupId,
       })
       .eq('id', link.id)
 
