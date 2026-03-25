@@ -878,6 +878,7 @@ export default function Home() {
     useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [linkSearch, setLinkSearch] = useState('')
+  const [todoOwnerFilter, setTodoOwnerFilter] = useState<'mine' | 'all'>('mine')
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -1403,6 +1404,26 @@ export default function Home() {
       })
   }, [todos])
 
+  const isOwnTodo = useMemo(() => {
+    return (todo: TodoItem) => {
+      if (!currentUserId) return false
+      return (
+        todo.created_by === currentUserId ||
+        todo.assigned_to === currentUserId
+      )
+    }
+  }, [currentUserId])
+
+  const visibleActiveTodos = useMemo(() => {
+    if (!isAdmin || todoOwnerFilter === 'all') return activeTodos
+    return activeTodos.filter((item) => isOwnTodo(item))
+  }, [activeTodos, isAdmin, todoOwnerFilter, isOwnTodo])
+
+  const visibleTodoHistoryItems = useMemo(() => {
+    if (!isAdmin || todoOwnerFilter === 'all') return todoHistoryItems
+    return todoHistoryItems.filter((item) => isOwnTodo(item))
+  }, [todoHistoryItems, isAdmin, todoOwnerFilter, isOwnTodo])
+
   const activeSentRequests = useMemo(() => {
     return sentRequests.filter((item) => (item.status ?? '未確認') !== '完了')
   }, [sentRequests])
@@ -1486,10 +1507,14 @@ export default function Home() {
 
     const recentSent = sentDisplayItems.slice(0, 5)
 
-    const todoPendingCount = activeTodos.length
-    const todoOverdueCount = activeTodos.filter((item) =>
+    const ownActiveTodos = isAdmin
+      ? activeTodos.filter((item) => isOwnTodo(item))
+      : []
+    const todoPendingCount = ownActiveTodos.length
+    const todoOverdueCount = ownActiveTodos.filter((item) =>
       isOverdue(item.deadline)
     ).length
+    const combinedOverdueCount = overduePendingCount + todoOverdueCount
 
     return {
       overduePendingCount,
@@ -1500,8 +1525,9 @@ export default function Home() {
       completedTotal: historyRequests.length,
       todoPendingCount,
       todoOverdueCount,
+      combinedOverdueCount,
     }
-  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos])
+  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos, isAdmin, isOwnTodo])
 
   const filteredLinks = useMemo(() => {
     const keyword = linkSearch.trim().toLowerCase()
@@ -3462,29 +3488,58 @@ export default function Home() {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">ToDo</h2>
               <p className="mt-1 text-sm text-slate-500">
-                管理者専用のToDo一覧です。未着手は薄い赤、進行中は薄い黄色で表示します。
+                管理者専用のToDo一覧です。未完了・進行中のみ表示します。
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                resetTodoForm()
-                setCreateFormOpen(false)
-                setTodoFormOpen((prev) => !prev)
-                setActiveView('todo')
-              }}
-              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              <PlusIcon />
-              新規ToDoを追加
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setTodoOwnerFilter('mine')}
+                  className={cn(
+                    'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                    todoOwnerFilter === 'mine'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-white'
+                  )}
+                >
+                  自分のToDo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTodoOwnerFilter('all')}
+                  className={cn(
+                    'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                    todoOwnerFilter === 'all'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-white'
+                  )}
+                >
+                  すべて
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetTodoForm()
+                  setCreateFormOpen(false)
+                  setTodoFormOpen((prev) => !prev)
+                  setActiveView('todo')
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                <PlusIcon />
+                新規ToDoを追加
+              </button>
+            </div>
           </div>
         </div>
 
-        {activeTodos.length > 0 ? (
+        {visibleActiveTodos.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {activeTodos.map((todo) => renderTodoCard(todo))}
+            {visibleActiveTodos.map((todo) => renderTodoCard(todo))}
           </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500">
@@ -3501,15 +3556,46 @@ export default function Home() {
     return (
       <div className="space-y-5">
         <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="text-lg font-semibold text-slate-900">ToDo履歴</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            完了したToDoを表示します。完了後7日で自動削除されます。
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">ToDo履歴</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                完了したToDoを表示します。完了後7日で自動削除されます。
+              </p>
+            </div>
+
+            <div className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setTodoOwnerFilter('mine')}
+                className={cn(
+                  'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                  todoOwnerFilter === 'mine'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-white'
+                )}
+              >
+                自分のToDo
+              </button>
+              <button
+                type="button"
+                onClick={() => setTodoOwnerFilter('all')}
+                className={cn(
+                  'rounded-xl px-3 py-2 text-sm font-semibold transition',
+                  todoOwnerFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-white'
+                )}
+              >
+                すべて
+              </button>
+            </div>
+          </div>
         </div>
 
-        {todoHistoryItems.length > 0 ? (
+        {visibleTodoHistoryItems.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {todoHistoryItems.map((todo) => renderTodoCard(todo, true))}
+            {visibleTodoHistoryItems.map((todo) => renderTodoCard(todo, true))}
           </div>
         ) : (
           <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500">
@@ -3788,7 +3874,7 @@ export default function Home() {
                     : 'text-slate-500'
                 )}
               >
-                {dashboardCounts.overduePendingCount}
+                {isAdmin ? dashboardCounts.combinedOverdueCount : dashboardCounts.overduePendingCount}
               </p>
             </div>
             <div className="text-right text-sm text-slate-500">
@@ -3805,7 +3891,7 @@ export default function Home() {
                 : 'text-slate-600'
             )}
           >
-            期限切りで未完了の依頼件です。
+            {isAdmin ? '期限切れの依頼と自分のToDoの合計件数です。' : '期限切れで未完了の依頼件です。'}
           </p>
         </div>
       </div>
@@ -3912,6 +3998,39 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between">
+              <p className="text-[15px] font-semibold text-slate-800">自分のToDo</p>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                管理者のみ
+              </span>
+            </div>
+
+            <div className="mt-5 grid flex-1 grid-cols-2 gap-3">
+              <div className="rounded-[22px] bg-red-50 p-4 text-center">
+                <p className="text-sm font-semibold text-red-700">未着手・進行中</p>
+                <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
+                  {dashboardCounts.todoPendingCount}
+                </p>
+              </div>
+
+              <div className="rounded-[22px] bg-amber-50 p-4 text-center">
+                <p className="text-sm font-semibold text-amber-700">期限切れToDo</p>
+                <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
+                  {dashboardCounts.todoOverdueCount}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-5 text-sm leading-6 text-slate-600">
+              自分が担当または作成したToDoの件数です。
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
