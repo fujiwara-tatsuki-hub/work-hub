@@ -3,9 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
-function unauthorized(extra?: Record<string, unknown>) {
+function unauthorized() {
   return NextResponse.json(
-    { ok: false, error: 'Unauthorized', ...extra },
+    { ok: false, error: 'Unauthorized' },
     { status: 401 }
   )
 }
@@ -15,15 +15,8 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     const authHeader = request.headers.get('authorization')
 
-    // 認証チェック（デバッグ情報付き）
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return unauthorized({
-        hasCronSecret: !!cronSecret,
-        hasAuthorizationHeader: !!authHeader,
-        receivedAuthorizationPreview: authHeader
-          ? `${authHeader.slice(0, 20)}...`
-          : null,
-      })
+      return unauthorized()
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -50,9 +43,7 @@ export async function GET(request: NextRequest) {
       now.getTime() - 30 * 24 * 60 * 60 * 1000
     ).toISOString()
 
-    // -------------------------
     // requests 削除（完了後7日）
-    // -------------------------
     const { data: rData, error: rError } = await supabase
       .from('requests')
       .delete()
@@ -65,9 +56,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: rError.message })
     }
 
-    // -------------------------
     // todos 削除（完了後7日）
-    // -------------------------
     const { data: tData, error: tError } = await supabase
       .from('todos')
       .delete()
@@ -80,9 +69,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: tError.message })
     }
 
-    // -------------------------
-    // logs 削除（30日）
-    // -------------------------
+    // activity_logs 削除（30日）
     const { data: lData, error: lError } = await supabase
       .from('activity_logs')
       .delete()
@@ -99,11 +86,6 @@ export async function GET(request: NextRequest) {
         requests: rData?.length ?? 0,
         todos: tData?.length ?? 0,
         logs: lData?.length ?? 0,
-      },
-      debug: {
-        now: now.toISOString(),
-        sevenDaysAgo,
-        thirtyDaysAgo,
       },
     })
   } catch (e) {
