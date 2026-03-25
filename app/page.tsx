@@ -2759,15 +2759,6 @@ export default function Home() {
             <ChevronDownIcon />
           </span>
         </div>
-
-        <span
-          className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
-            currentMeta.className
-          )}
-        >
-          {currentMeta.label}
-        </span>
       </div>
     )
   }
@@ -3246,15 +3237,6 @@ export default function Home() {
             <ChevronDownIcon />
           </span>
         </div>
-
-        <span
-          className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
-            currentMeta.className
-          )}
-        >
-          {currentMeta.label}
-        </span>
       </div>
     )
   }
