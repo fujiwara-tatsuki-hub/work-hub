@@ -66,7 +66,30 @@ type LinkItem = {
   updated_at: string
 }
 
-type ViewKey = 'dashboard' | 'received' | 'sent' | 'history' | 'links' | 'settings'
+type TodoItem = {
+  id: string
+  title: string
+  content: string | null
+  status: string | null
+  priority: string | null
+  deadline: string | null
+  created_by: string
+  assigned_to: string | null
+  is_completed: boolean
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ViewKey =
+  | 'dashboard'
+  | 'received'
+  | 'sent'
+  | 'history'
+  | 'todo'
+  | 'todo_history'
+  | 'links'
+  | 'settings'
 
 type SentDisplayItem =
   | {
@@ -87,6 +110,7 @@ type SentDisplayItem =
 
 const STATUS_OPTIONS = ['未確認', '対応中', '完了']
 const PRIORITY_OPTIONS = ['低', '中', '高']
+const TODO_STATUS_OPTIONS = ['未着手', '進行中', '完了']
 
 const MY_CONNECT_URL =
   'https://script.google.com/a/macros/chronusinc.jp/s/AKfycbzSKDnhFKHWFQZwlUVpi5yrXHuH2GCc4gUny2fUslMkrABG0vAQrTCHzyHBre1fJJT-dg/exec'
@@ -178,6 +202,92 @@ function getPriorityMeta(priority: string | null | undefined) {
     className:
       'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
   }
+}
+
+function getTodoStatusMeta(status: string | null | undefined) {
+  const key = status ?? '未着手'
+
+  if (key === '進行中') {
+    return {
+      label: '進行中',
+      className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
+
+  if (key === '完了') {
+    return {
+      label: '完了',
+      className:
+        'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+    }
+  }
+
+  return {
+    label: '未着手',
+    className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+  }
+}
+
+function getTodoCardStyle(todo: TodoItem) {
+  const status = todo.status ?? '未着手'
+
+  if (status === '未着手' && isOverdue(todo.deadline)) {
+    return {
+      cardClassName:
+        'border border-red-200 bg-red-50/80 shadow-sm shadow-red-100/40',
+      statusClassName:
+        'bg-red-100 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
+
+  if (status === '未着手') {
+    return {
+      cardClassName: 'border border-slate-200 bg-white shadow-sm',
+      statusClassName:
+        'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
+
+  if (status === '進行中') {
+    return {
+      cardClassName: 'border border-slate-200 bg-white shadow-sm',
+      statusClassName:
+        'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    }
+  }
+
+  return {
+    cardClassName: 'border border-slate-200 bg-white shadow-sm',
+    statusClassName:
+      'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+  }
+}
+
+function sortActiveTodos(todos: TodoItem[]) {
+  const rank = (todo: TodoItem) => {
+    const status = todo.status ?? '未着手'
+    if (status === '未着手' && isOverdue(todo.deadline)) return 0
+    if (status === '未着手') return 1
+    if (status === '進行中') return 2
+    return 3
+  }
+
+  return [...todos].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b)
+    if (rankDiff !== 0) return rankDiff
+
+    const deadlineA = a.deadline
+      ? new Date(a.deadline).getTime()
+      : Number.MAX_SAFE_INTEGER
+    const deadlineB = b.deadline
+      ? new Date(b.deadline).getTime()
+      : Number.MAX_SAFE_INTEGER
+    if (deadlineA !== deadlineB) return deadlineA - deadlineB
+
+    return (
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+  })
 }
 
 function getRequestCardStyle(request: RequestItem) {
@@ -279,6 +389,10 @@ function getActivityActionLabel(action: string) {
     link_group_updated: 'グループ更新',
     link_group_deleted: 'グループ削除',
     user_settings_updated: '設定更新',
+    todo_created: 'ToDo作成',
+    todo_updated: 'ToDo更新',
+    todo_deleted: 'ToDo削除',
+    todo_status_updated: 'ToDoステータス変更',
   }
 
   return map[action] ?? action
@@ -291,6 +405,7 @@ function getActivityTargetTypeLabel(targetType: string) {
     link: 'リンク',
     link_group: 'グループ',
     settings: '設定',
+    todo: 'ToDo',
   }
 
   return map[targetType] ?? targetType
@@ -621,6 +736,27 @@ function HistoryIcon() {
   )
 }
 
+function TodoIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 11.5 11 13.5l4-4" />
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 7h8" />
+      <path d="M8 17h8" />
+    </svg>
+  )
+}
+
 function LinkListIcon() {
   return (
     <svg
@@ -717,6 +853,7 @@ function BarChartMini({
 export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [requests, setRequests] = useState<RequestItem[]>([])
+  const [todos, setTodos] = useState<TodoItem[]>([])
   const [users, setUsers] = useState<UserItem[]>([])
   const [linkGroups, setLinkGroups] = useState<LinkGroupItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
@@ -728,9 +865,11 @@ export default function Home() {
   const [activityLogDateTo, setActivityLogDateTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [todoSubmitting, setTodoSubmitting] = useState(false)
   const [linkSubmitting, setLinkSubmitting] = useState(false)
   const [settingsSubmitting, setSettingsSubmitting] = useState(false)
   const [createFormOpen, setCreateFormOpen] = useState(false)
+  const [todoFormOpen, setTodoFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkCreateOpen, setLinkCreateOpen] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>('dashboard')
@@ -747,6 +886,12 @@ export default function Home() {
   const [priority, setPriority] = useState('中')
   const [deadline, setDeadline] = useState('')
 
+  const [todoTitle, setTodoTitle] = useState('')
+  const [todoContent, setTodoContent] = useState('')
+  const [todoStatus, setTodoStatus] = useState('未着手')
+  const [todoPriority, setTodoPriority] = useState('中')
+  const [todoDeadline, setTodoDeadline] = useState('')
+
   const [newParentGroupName, setNewParentGroupName] = useState('')
   const [newChildGroupName, setNewChildGroupName] = useState('')
   const [childParentGroupId, setChildParentGroupId] = useState('')
@@ -755,7 +900,9 @@ export default function Home() {
   const [newLinkGroupId, setNewLinkGroupId] = useState('')
 
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
+  const [todoDetailTarget, setTodoDetailTarget] = useState<TodoItem | null>(null)
   const [selectedLinkGroupId, setSelectedLinkGroupId] = useState<string | null>(null)
 
   const [editingLinkGroupTarget, setEditingLinkGroupTarget] = useState<LinkGroupItem | null>(null)
@@ -851,6 +998,14 @@ export default function Home() {
 
     fetchUserSettings()
   }, [currentUserId])
+
+  useEffect(() => {
+    if (isAdmin) return
+
+    if (activeView === 'todo' || activeView === 'todo_history') {
+      setActiveView('dashboard')
+    }
+  }, [isAdmin, activeView])
 
   useEffect(() => {
     if (!currentUserId) return
@@ -954,6 +1109,27 @@ export default function Home() {
     setRequests((data as RequestItem[]) ?? [])
   }
 
+  const fetchTodos = async () => {
+    if (!currentUserId || !isAdmin) {
+      setTodos([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('todos')
+      .select(
+        'id, title, content, status, priority, deadline, created_by, assigned_to, is_completed, completed_at, created_at, updated_at'
+      )
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('todos取得エラー:', error)
+      return
+    }
+
+    setTodos((data as TodoItem[]) ?? [])
+  }
+
   const fetchLinkGroups = async () => {
     const { data, error } = await supabase
       .from('link_groups')
@@ -1041,13 +1217,17 @@ export default function Home() {
     setSelectedMemberId(userId)
     setMemberMenuOpen(false)
     setCreateFormOpen(false)
+    setTodoFormOpen(false)
     setDetailTarget(null)
+    setTodoDetailTarget(null)
     setEditingId(null)
+    setEditingTodoId(null)
   }
 
   useEffect(() => {
     if (!currentUserId) {
       setRequests([])
+      setTodos([])
       setUsers([])
       setLinkGroups([])
       setLinks([])
@@ -1056,9 +1236,10 @@ export default function Home() {
 
     fetchUsers()
     fetchRequests()
+    fetchTodos()
     fetchLinkGroups()
     fetchLinks()
-  }, [currentUserId, effectiveUserId])
+  }, [currentUserId, effectiveUserId, isAdmin])
 
   useEffect(() => {
     if (!effectiveUserId) return
@@ -1082,6 +1263,29 @@ export default function Home() {
       supabase.removeChannel(channel)
     }
   }, [effectiveUserId])
+
+  useEffect(() => {
+    if (!currentUserId || !isAdmin) return
+
+    const channel = supabase
+      .channel(`todos-realtime-${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'todos',
+        },
+        async () => {
+          await fetchTodos()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUserId, isAdmin])
 
   useEffect(() => {
     if (!userSettings) return
@@ -1177,6 +1381,28 @@ export default function Home() {
       })
   }, [requests])
 
+  const activeTodos = useMemo(() => {
+    return sortActiveTodos(
+      todos.filter(
+        (item) => !item.is_completed && (item.status ?? '未着手') !== '完了'
+      )
+    )
+  }, [todos])
+
+  const todoHistoryItems = useMemo(() => {
+    return todos
+      .filter((item) => item.is_completed || (item.status ?? '未着手') === '完了')
+      .sort((a, b) => {
+        const completedA = a.completed_at
+          ? new Date(a.completed_at).getTime()
+          : 0
+        const completedB = b.completed_at
+          ? new Date(b.completed_at).getTime()
+          : 0
+        return completedB - completedA
+      })
+  }, [todos])
+
   const activeSentRequests = useMemo(() => {
     return sentRequests.filter((item) => (item.status ?? '未確認') !== '完了')
   }, [sentRequests])
@@ -1260,6 +1486,11 @@ export default function Home() {
 
     const recentSent = sentDisplayItems.slice(0, 5)
 
+    const todoPendingCount = activeTodos.length
+    const todoOverdueCount = activeTodos.filter((item) =>
+      isOverdue(item.deadline)
+    ).length
+
     return {
       overduePendingCount,
       pendingCount,
@@ -1267,8 +1498,10 @@ export default function Home() {
       receivedTotal: receivedRequests.length,
       sentTotal: activeSentRequests.length,
       completedTotal: historyRequests.length,
+      todoPendingCount,
+      todoOverdueCount,
     }
-  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests])
+  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos])
 
   const filteredLinks = useMemo(() => {
     const keyword = linkSearch.trim().toLowerCase()
@@ -1378,6 +1611,15 @@ export default function Home() {
     setDeadline('')
     setEditingId(null)
     setUserSearch('')
+  }
+
+  const resetTodoForm = () => {
+    setTodoTitle('')
+    setTodoContent('')
+    setTodoStatus('未着手')
+    setTodoPriority('中')
+    setTodoDeadline('')
+    setEditingTodoId(null)
   }
 
   const resetLinkCreateForm = () => {
@@ -1519,6 +1761,158 @@ export default function Home() {
       alert('保存に失敗しました。')
       setSubmitting(false)
     }
+  }
+
+  const handleCreateTodo = async () => {
+    if (!currentUserId || !isAdmin) return
+
+    const trimmedTitle = todoTitle.trim()
+    const trimmedContent = todoContent.trim()
+
+    if (!trimmedTitle) {
+      alert('ToDoのタイトルを入力してください。')
+      return
+    }
+
+    setTodoSubmitting(true)
+
+    try {
+      if (editingTodoId) {
+        const nextIsCompleted = todoStatus === '完了'
+        const { error } = await supabase
+          .from('todos')
+          .update({
+            title: trimmedTitle,
+            content: trimmedContent || null,
+            status: todoStatus,
+            priority: todoPriority,
+            deadline: todoDeadline || null,
+            is_completed: nextIsCompleted,
+            completed_at: nextIsCompleted ? new Date().toISOString() : null,
+          })
+          .eq('id', editingTodoId)
+
+        if (error) {
+          console.error('ToDo更新エラー:', error)
+          alert('ToDoの更新に失敗しました。')
+          setTodoSubmitting(false)
+          return
+        }
+
+        await logActivity(
+          'todo_updated',
+          'todo',
+          editingTodoId,
+          `${trimmedTitle} を更新`
+        )
+
+        resetTodoForm()
+        setTodoFormOpen(false)
+        setTodoSubmitting(false)
+        fetchTodos()
+        return
+      }
+
+      const nextIsCompleted = todoStatus === '完了'
+      const { error } = await supabase.from('todos').insert({
+        title: trimmedTitle,
+        content: trimmedContent || null,
+        status: todoStatus,
+        priority: todoPriority,
+        deadline: todoDeadline || null,
+        created_by: currentUserId,
+        assigned_to: currentUserId,
+        is_completed: nextIsCompleted,
+        completed_at: nextIsCompleted ? new Date().toISOString() : null,
+      })
+
+      if (error) {
+        console.error('ToDo作成エラー:', error)
+        alert('ToDoの保存に失敗しました。')
+        setTodoSubmitting(false)
+        return
+      }
+
+      await logActivity('todo_created', 'todo', null, `${trimmedTitle} を作成`)
+
+      resetTodoForm()
+      setTodoFormOpen(false)
+      setTodoSubmitting(false)
+      fetchTodos()
+    } catch (error) {
+      console.error('ToDo保存処理エラー:', error)
+      alert('ToDoの保存に失敗しました。')
+      setTodoSubmitting(false)
+    }
+  }
+
+  const handleStartEditTodo = (todo: TodoItem) => {
+    setEditingTodoId(todo.id)
+    setTodoTitle(todo.title)
+    setTodoContent(todo.content ?? '')
+    setTodoStatus(todo.status ?? '未着手')
+    setTodoPriority(todo.priority ?? '中')
+    setTodoDeadline(todo.deadline ?? '')
+    setTodoFormOpen(true)
+    setCreateFormOpen(false)
+    setActiveView('todo')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleDeleteTodo = async (todoId: string) => {
+    if (!isAdmin) return
+
+    const confirmed = window.confirm('このToDoを削除しますか？')
+    if (!confirmed) return
+
+    const targetTodo = todos.find((item) => item.id === todoId)
+
+    const { error } = await supabase.from('todos').delete().eq('id', todoId)
+
+    if (error) {
+      console.error('ToDo削除エラー:', error)
+      alert('ToDoの削除に失敗しました。')
+      return
+    }
+
+    await logActivity(
+      'todo_deleted',
+      'todo',
+      todoId,
+      targetTodo ? `${targetTodo.title} を削除` : 'ToDoを削除'
+    )
+
+    fetchTodos()
+  }
+
+  const handleTodoStatusChange = async (todoId: string, nextStatus: string) => {
+    if (!isAdmin) return
+
+    const nextIsCompleted = nextStatus === '完了'
+
+    const { error } = await supabase
+      .from('todos')
+      .update({
+        status: nextStatus,
+        is_completed: nextIsCompleted,
+        completed_at: nextIsCompleted ? new Date().toISOString() : null,
+      })
+      .eq('id', todoId)
+
+    if (error) {
+      console.error('ToDoステータス更新エラー:', error)
+      alert('ToDoステータスの更新に失敗しました。')
+      return
+    }
+
+    await logActivity(
+      'todo_status_updated',
+      'todo',
+      todoId,
+      `ステータスを${nextStatus}に変更`
+    )
+
+    fetchTodos()
   }
 
   const handleCreateParentGroup = async () => {
@@ -1995,6 +2389,7 @@ export default function Home() {
     setPriority(request.priority ?? '中')
     setDeadline(request.deadline ?? '')
     setCreateFormOpen(true)
+    setTodoFormOpen(false)
     setActiveView('sent')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -2190,6 +2585,16 @@ export default function Home() {
     { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
     { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
     { key: 'history', label: '履歴', icon: <HistoryIcon /> },
+    ...(isAdmin
+      ? [
+          { key: 'todo' as ViewKey, label: 'ToDo', icon: <TodoIcon /> },
+          {
+            key: 'todo_history' as ViewKey,
+            label: 'ToDo履歴',
+            icon: <HistoryIcon />,
+          },
+        ]
+      : []),
     { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
     { key: 'settings', label: '設定', icon: <SettingsIcon /> },
   ]
@@ -2804,6 +3209,335 @@ export default function Home() {
     </div>
   )
 
+  const renderTodoStatusSelect = (todo: TodoItem) => {
+    const currentStatus = todo.status ?? '未着手'
+    const currentMeta = getTodoStatusMeta(currentStatus)
+
+    return (
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[170px]">
+          <select
+            value={currentStatus}
+            onChange={(event) =>
+              handleTodoStatusChange(todo.id, event.target.value)
+            }
+            className={cn(
+              'w-full appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold outline-none transition',
+              currentStatus === '未着手' &&
+                'border-red-200 bg-red-50 text-red-700',
+              currentStatus === '進行中' &&
+                'border-amber-200 bg-amber-50 text-amber-700',
+              currentStatus === '完了' &&
+                'border-emerald-200 bg-emerald-50 text-emerald-700'
+            )}
+          >
+            <option value="未着手">未着手</option>
+            <option value="進行中">進行中</option>
+            <option value="完了">完了</option>
+          </select>
+          <span
+            className={cn(
+              'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2',
+              currentStatus === '未着手' && 'text-red-500',
+              currentStatus === '進行中' && 'text-amber-500',
+              currentStatus === '完了' && 'text-emerald-500'
+            )}
+          >
+            <ChevronDownIcon />
+          </span>
+        </div>
+
+        <span
+          className={cn(
+            'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+            currentMeta.className
+          )}
+        >
+          {currentMeta.label}
+        </span>
+      </div>
+    )
+  }
+
+  const renderTodoForm = () => (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {editingTodoId ? 'ToDoを編集' : '新規ToDoを作成'}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            タイトル・内容・優先度・期限を入力してください
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setTodoFormOpen(false)
+            resetTodoForm()
+          }}
+          className="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          <CloseIcon />
+          閉じる
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            タイトル
+          </label>
+          <input
+            value={todoTitle}
+            onChange={(event) => setTodoTitle(event.target.value)}
+            placeholder="例：月末集計の確認"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            内容
+          </label>
+          <textarea
+            value={todoContent}
+            onChange={(event) => setTodoContent(event.target.value)}
+            rows={5}
+            placeholder="ToDoの詳細を入力してください"
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              ステータス
+            </label>
+            <select
+              value={todoStatus}
+              onChange={(event) => setTodoStatus(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              {TODO_STATUS_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              優先度
+            </label>
+            <select
+              value={todoPriority}
+              onChange={(event) => setTodoPriority(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              {PRIORITY_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              期限
+            </label>
+            <input
+              type="date"
+              value={todoDeadline}
+              onChange={(event) => setTodoDeadline(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              resetTodoForm()
+              setTodoFormOpen(false)
+            }}
+            className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            キャンセル
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCreateTodo}
+            disabled={todoSubmitting}
+            className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {todoSubmitting ? '保存中...' : editingTodoId ? '更新する' : '保存する'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderTodoCard = (todo: TodoItem, isHistory = false) => {
+    const cardStyle = getTodoCardStyle(todo)
+    const creatorName = getUserLabel(userMap.get(todo.created_by))
+    const assigneeName = getUserLabel(
+      todo.assigned_to ? userMap.get(todo.assigned_to) : undefined
+    )
+
+    return (
+      <div
+        key={todo.id}
+        className={cn(
+          'flex h-full min-h-[320px] flex-col rounded-[28px] p-4 transition sm:p-5',
+          cardStyle.cardClassName
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900">
+                {todo.title}
+              </h3>
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+                  cardStyle.statusClassName
+                )}
+              >
+                {todo.status ?? '未着手'}
+              </span>
+              {renderPriorityBadge(todo.priority)}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {!isHistory && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleStartEditTodo(todo)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                  title="編集"
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                  title="削除"
+                >
+                  <TrashIcon />
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setTodoDetailTarget(todo)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              title="詳細"
+            >
+              <EyeIcon />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex-1">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {todo.content || '内容なし'}
+          </p>
+        </div>
+
+        <div className="mt-auto pt-4">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+            <span>作成者：{creatorName}</span>
+            <span>担当：{assigneeName}</span>
+            <span>期限：{formatDate(todo.deadline)}</span>
+            <span>作成日：{formatDateTime(todo.created_at)}</span>
+            {isHistory && <span>完了日：{formatDateTime(todo.completed_at)}</span>}
+          </div>
+
+          {!isHistory && renderTodoStatusSelect(todo)}
+        </div>
+      </div>
+    )
+  }
+
+  const renderTodo = () => {
+    if (!isAdmin) return null
+
+    return (
+      <div className="space-y-5">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">ToDo</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                管理者専用のToDo一覧です。未着手は薄い赤、進行中は薄い黄色で表示します。
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetTodoForm()
+                setCreateFormOpen(false)
+                setTodoFormOpen((prev) => !prev)
+                setActiveView('todo')
+              }}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              <PlusIcon />
+              新規ToDoを追加
+            </button>
+          </div>
+        </div>
+
+        {activeTodos.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {activeTodos.map((todo) => renderTodoCard(todo))}
+          </div>
+        ) : (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            表示するToDoはありません。
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderTodoHistory = () => {
+    if (!isAdmin) return null
+
+    return (
+      <div className="space-y-5">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <h2 className="text-lg font-semibold text-slate-900">ToDo履歴</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            完了したToDoを表示します。完了後7日で自動削除されます。
+          </p>
+        </div>
+
+        {todoHistoryItems.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {todoHistoryItems.map((todo) => renderTodoCard(todo, true))}
+          </div>
+        ) : (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-500">
+            完了済みToDoはありません。
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderAdminLinkCreatePanel = () => {
     if (!isAdmin) return null
 
@@ -3152,6 +3886,7 @@ export default function Home() {
               type="button"
               onClick={() => {
                 resetForm()
+                setTodoFormOpen(false)
                 setCreateFormOpen((prev) => !prev)
                 setActiveView('dashboard')
               }}
@@ -3178,6 +3913,20 @@ export default function Home() {
               <span>送信依頼を見る</span>
               <ChevronRightIcon />
             </button>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTodoFormOpen(false)
+                  setActiveView('todo')
+                }}
+                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                <span>ToDoを見る</span>
+                <ChevronRightIcon />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -3235,6 +3984,7 @@ export default function Home() {
           type="button"
           onClick={() => {
             resetForm()
+            setTodoFormOpen(false)
             setCreateFormOpen(true)
           }}
           className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
@@ -3270,6 +4020,7 @@ export default function Home() {
           type="button"
           onClick={() => {
             resetForm()
+            setTodoFormOpen(false)
             setCreateFormOpen(true)
           }}
           className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
@@ -4444,13 +5195,16 @@ export default function Home() {
               )}
 
               {createFormOpen && renderCreateForm()}
+              {todoFormOpen && renderTodoForm()}
 
-              {!createFormOpen && activeView === 'dashboard' && renderDashboard()}
-              {!createFormOpen && activeView === 'received' && renderReceived()}
-              {!createFormOpen && activeView === 'sent' && renderSent()}
-              {!createFormOpen && activeView === 'history' && renderHistory()}
-              {!createFormOpen && activeView === 'links' && renderLinks()}
-              {!createFormOpen && activeView === 'settings' && renderSettings()}
+              {!createFormOpen && !todoFormOpen && activeView === 'dashboard' && renderDashboard()}
+              {!createFormOpen && !todoFormOpen && activeView === 'received' && renderReceived()}
+              {!createFormOpen && !todoFormOpen && activeView === 'sent' && renderSent()}
+              {!createFormOpen && !todoFormOpen && activeView === 'history' && renderHistory()}
+              {!createFormOpen && !todoFormOpen && activeView === 'todo' && renderTodo()}
+              {!createFormOpen && !todoFormOpen && activeView === 'todo_history' && renderTodoHistory()}
+              {!createFormOpen && !todoFormOpen && activeView === 'links' && renderLinks()}
+              {!createFormOpen && !todoFormOpen && activeView === 'settings' && renderSettings()}
             </div>
           </div>
         </div>
@@ -4458,6 +5212,106 @@ export default function Home() {
 
       {renderLinkGroupEditModal()}
       {renderLinkEditModal()}
+
+      {todoDetailTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
+          <button
+            type="button"
+            onClick={() => setTodoDetailTarget(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative z-10 w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">
+                  Todo Detail
+                </p>
+                <h2 className="mt-2 text-xl font-semibold text-slate-900">
+                  {todoDetailTarget.title}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTodoDetailTarget(null)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-5">
+              <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    作成者
+                  </p>
+                  <p className="mt-1">
+                    {getUserLabel(userMap.get(todoDetailTarget.created_by))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    担当
+                  </p>
+                  <p className="mt-1">
+                    {getUserLabel(
+                      todoDetailTarget.assigned_to
+                        ? userMap.get(todoDetailTarget.assigned_to)
+                        : undefined
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    ステータス
+                  </p>
+                  <p className="mt-1">{todoDetailTarget.status ?? '未着手'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    優先度
+                  </p>
+                  <p className="mt-1">{todoDetailTarget.priority ?? '中'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    期限
+                  </p>
+                  <p className="mt-1">{formatDate(todoDetailTarget.deadline)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    作成日
+                  </p>
+                  <p className="mt-1">
+                    {formatDateTime(todoDetailTarget.created_at)}
+                  </p>
+                </div>
+                {(todoDetailTarget.status ?? '未着手') === '完了' && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      完了日
+                    </p>
+                    <p className="mt-1">
+                      {formatDateTime(todoDetailTarget.completed_at)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">内容</p>
+                <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    {todoDetailTarget.content || '内容なし'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {detailTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
