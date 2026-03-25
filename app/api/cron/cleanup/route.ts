@@ -3,8 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
-function unauthorized() {
-  return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+function unauthorized(extra?: Record<string, unknown>) {
+  return NextResponse.json(
+    { ok: false, error: 'Unauthorized', ...extra },
+    { status: 401 }
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -12,8 +15,15 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     const authHeader = request.headers.get('authorization')
 
+    // 認証チェック（デバッグ情報付き）
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return unauthorized()
+      return unauthorized({
+        hasCronSecret: !!cronSecret,
+        hasAuthorizationHeader: !!authHeader,
+        receivedAuthorizationPreview: authHeader
+          ? `${authHeader.slice(0, 20)}...`
+          : null,
+      })
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -27,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false }
+      auth: { persistSession: false },
     })
 
     const now = new Date()
@@ -41,12 +51,13 @@ export async function GET(request: NextRequest) {
     ).toISOString()
 
     // -------------------------
-    // requests 削除
+    // requests 削除（完了後7日）
     // -------------------------
     const { data: rData, error: rError } = await supabase
       .from('requests')
       .delete()
       .eq('status', '完了')
+      .not('completed_at', 'is', null)
       .lte('completed_at', sevenDaysAgo)
       .select('id')
 
@@ -55,12 +66,13 @@ export async function GET(request: NextRequest) {
     }
 
     // -------------------------
-    // todos 削除
+    // todos 削除（完了後7日）
     // -------------------------
     const { data: tData, error: tError } = await supabase
       .from('todos')
       .delete()
       .eq('is_completed', true)
+      .not('completed_at', 'is', null)
       .lte('completed_at', sevenDaysAgo)
       .select('id')
 
@@ -69,7 +81,7 @@ export async function GET(request: NextRequest) {
     }
 
     // -------------------------
-    // logs 削除
+    // logs 削除（30日）
     // -------------------------
     const { data: lData, error: lError } = await supabase
       .from('activity_logs')
@@ -86,8 +98,13 @@ export async function GET(request: NextRequest) {
       deleted: {
         requests: rData?.length ?? 0,
         todos: tData?.length ?? 0,
-        logs: lData?.length ?? 0
-      }
+        logs: lData?.length ?? 0,
+      },
+      debug: {
+        now: now.toISOString(),
+        sevenDaysAgo,
+        thirtyDaysAgo,
+      },
     })
   } catch (e) {
     return NextResponse.json({ ok: false, error: 'Unexpected error' })
