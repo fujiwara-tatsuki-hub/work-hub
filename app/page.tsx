@@ -29,7 +29,7 @@ type UserItem = {
 type UserSettingsItem = {
   id: string
   user_id: string
-  default_view: 'dashboard' | 'received' | 'sent' | 'history' | 'links'
+  default_view: 'dashboard' | 'received' | 'sent' | 'history' | 'links' | 'templates'
   notification_enabled: boolean
   mobile_grouped_layout: boolean
   created_at: string
@@ -51,6 +51,27 @@ type LinkGroupItem = {
   id: string
   name: string
   parent_id: string | null
+  sort_order: number
+  admin_only: boolean
+  created_at: string
+  updated_at: string
+}
+
+type TemplateGroupItem = {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+type TemplateItem = {
+  id: string
+  group_id: string | null
+  title: string
+  subject: string
+  body: string
   sort_order: number
   created_at: string
   updated_at: string
@@ -89,6 +110,7 @@ type ViewKey =
   | 'todo'
   | 'todo_history'
   | 'links'
+  | 'templates'
   | 'settings'
 
 type SentDisplayItem =
@@ -393,6 +415,12 @@ function getActivityActionLabel(action: string) {
     todo_updated: 'ToDo更新',
     todo_deleted: 'ToDo削除',
     todo_status_updated: 'ToDoステータス変更',
+    template_created: 'テンプレート作成',
+    template_updated: 'テンプレート更新',
+    template_deleted: 'テンプレート削除',
+    template_group_created: 'テンプレートグループ作成',
+    template_group_updated: 'テンプレートグループ更新',
+    template_group_deleted: 'テンプレートグループ削除',
   }
 
   return map[action] ?? action
@@ -406,6 +434,8 @@ function getActivityTargetTypeLabel(targetType: string) {
     link_group: 'グループ',
     settings: '設定',
     todo: 'ToDo',
+    template: 'テンプレート',
+    template_group: 'テンプレートグループ',
   }
 
   return map[targetType] ?? targetType
@@ -857,6 +887,8 @@ export default function Home() {
   const [users, setUsers] = useState<UserItem[]>([])
   const [linkGroups, setLinkGroups] = useState<LinkGroupItem[]>([])
   const [links, setLinks] = useState<LinkItem[]>([])
+  const [templateGroups, setTemplateGroups] = useState<TemplateGroupItem[]>([])
+  const [templates, setTemplates] = useState<TemplateItem[]>([])
   const [userSettings, setUserSettings] = useState<UserSettingsItem | null>(null)
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([])
   const [activityLogUserFilter, setActivityLogUserFilter] = useState('all')
@@ -878,6 +910,7 @@ export default function Home() {
     useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [linkSearch, setLinkSearch] = useState('')
+  const [templateSearch, setTemplateSearch] = useState('')
   const [todoOwnerFilter, setTodoOwnerFilter] = useState<'mine' | 'all'>('mine')
 
   const [title, setTitle] = useState('')
@@ -894,26 +927,47 @@ export default function Home() {
   const [todoDeadline, setTodoDeadline] = useState('')
 
   const [newParentGroupName, setNewParentGroupName] = useState('')
+  const [newParentGroupAdminOnly, setNewParentGroupAdminOnly] = useState(false)
   const [newChildGroupName, setNewChildGroupName] = useState('')
   const [childParentGroupId, setChildParentGroupId] = useState('')
   const [newLinkTitle, setNewLinkTitle] = useState('')
   const [newLinkUrl, setNewLinkUrl] = useState('')
   const [newLinkGroupId, setNewLinkGroupId] = useState('')
 
+  const [newTemplateParentGroupName, setNewTemplateParentGroupName] = useState('')
+  const [newTemplateChildGroupName, setNewTemplateChildGroupName] = useState('')
+  const [templateChildParentGroupId, setTemplateChildParentGroupId] = useState('')
+  const [newTemplateTitle, setNewTemplateTitle] = useState('')
+  const [newTemplateSubject, setNewTemplateSubject] = useState('')
+  const [newTemplateBody, setNewTemplateBody] = useState('')
+  const [newTemplateGroupId, setNewTemplateGroupId] = useState('')
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null)
   const [detailTarget, setDetailTarget] = useState<RequestItem | null>(null)
   const [todoDetailTarget, setTodoDetailTarget] = useState<TodoItem | null>(null)
   const [selectedLinkGroupId, setSelectedLinkGroupId] = useState<string | null>(null)
+  const [selectedTemplateGroupId, setSelectedTemplateGroupId] = useState<string | null>(null)
 
   const [editingLinkGroupTarget, setEditingLinkGroupTarget] = useState<LinkGroupItem | null>(null)
   const [editLinkGroupName, setEditLinkGroupName] = useState('')
   const [editLinkGroupParentId, setEditLinkGroupParentId] = useState('')
+  const [editLinkGroupAdminOnly, setEditLinkGroupAdminOnly] = useState(false)
 
   const [editingLinkTarget, setEditingLinkTarget] = useState<LinkItem | null>(null)
   const [editLinkTitle, setEditLinkTitle] = useState('')
   const [editLinkUrl, setEditLinkUrl] = useState('')
   const [editLinkGroupId, setEditLinkGroupId] = useState('')
+
+  const [editingTemplateGroupTarget, setEditingTemplateGroupTarget] = useState<TemplateGroupItem | null>(null)
+  const [editTemplateGroupName, setEditTemplateGroupName] = useState('')
+  const [editTemplateGroupParentId, setEditTemplateGroupParentId] = useState('')
+
+  const [editingTemplateTarget, setEditingTemplateTarget] = useState<TemplateItem | null>(null)
+  const [editTemplateTitle, setEditTemplateTitle] = useState('')
+  const [editTemplateSubject, setEditTemplateSubject] = useState('')
+  const [editTemplateBody, setEditTemplateBody] = useState('')
+  const [editTemplateGroupId, setEditTemplateGroupId] = useState('')
 
   const [settingsDefaultView, setSettingsDefaultView] = useState<ViewKey>('dashboard')
   const [settingsNotificationEnabled, setSettingsNotificationEnabled] = useState(true)
@@ -954,6 +1008,10 @@ export default function Home() {
   useEffect(() => {
     if (activeView !== 'links') {
       setSelectedLinkGroupId(null)
+    }
+
+    if (activeView !== 'templates') {
+      setSelectedTemplateGroupId(null)
     }
   }, [activeView])
 
@@ -1003,7 +1061,7 @@ export default function Home() {
   useEffect(() => {
     if (isAdmin) return
 
-    if (activeView === 'todo' || activeView === 'todo_history') {
+    if (activeView === 'todo' || activeView === 'todo_history' || activeView === 'templates') {
       setActiveView('dashboard')
     }
   }, [isAdmin, activeView])
@@ -1134,7 +1192,7 @@ export default function Home() {
   const fetchLinkGroups = async () => {
     const { data, error } = await supabase
       .from('link_groups')
-      .select('id, name, parent_id, sort_order, created_at, updated_at')
+.select('id, name, parent_id, sort_order, admin_only, created_at, updated_at')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
 
@@ -1159,6 +1217,46 @@ export default function Home() {
     }
 
     setLinks((data as LinkItem[]) ?? [])
+  }
+
+  const fetchTemplateGroups = async () => {
+    if (!isAdmin) {
+      setTemplateGroups([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('template_groups')
+      .select('id, name, parent_id, sort_order, created_at, updated_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('template_groups取得エラー:', error)
+      return
+    }
+
+    setTemplateGroups((data as TemplateGroupItem[]) ?? [])
+  }
+
+  const fetchTemplates = async () => {
+    if (!isAdmin) {
+      setTemplates([])
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('templates')
+      .select('id, group_id, title, subject, body, sort_order, created_at, updated_at')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('templates取得エラー:', error)
+      return
+    }
+
+    setTemplates((data as TemplateItem[]) ?? [])
   }
 
   const fetchUserSettings = async () => {
@@ -1214,6 +1312,10 @@ export default function Home() {
     await Promise.all([fetchLinkGroups(), fetchLinks()])
   }
 
+  const refreshTemplatesData = async () => {
+    await Promise.all([fetchTemplateGroups(), fetchTemplates()])
+  }
+
   const handleSelectMember = (userId: string | null) => {
     setSelectedMemberId(userId)
     setMemberMenuOpen(false)
@@ -1232,6 +1334,8 @@ export default function Home() {
       setUsers([])
       setLinkGroups([])
       setLinks([])
+      setTemplateGroups([])
+      setTemplates([])
       return
     }
 
@@ -1240,6 +1344,8 @@ export default function Home() {
     fetchTodos()
     fetchLinkGroups()
     fetchLinks()
+    fetchTemplateGroups()
+    fetchTemplates()
   }, [currentUserId, effectiveUserId, isAdmin])
 
   useEffect(() => {
@@ -1536,19 +1642,24 @@ export default function Home() {
     return links.filter((link) => link.title.toLowerCase().includes(keyword))
   }, [links, linkSearch])
 
+  const accessibleLinkGroups = useMemo(() => {
+    if (isAdmin) return linkGroups
+    return linkGroups.filter((group) => !group.admin_only)
+  }, [linkGroups, isAdmin])
+
   const rootLinkGroups = useMemo(() => {
-    return [...linkGroups]
+    return [...accessibleLinkGroups]
       .filter((group) => !group.parent_id)
       .sort((a, b) => {
         if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
         return a.name.localeCompare(b.name, 'ja')
       })
-  }, [linkGroups])
+  }, [accessibleLinkGroups])
 
   const childGroupsMap = useMemo(() => {
     const map = new Map<string, LinkGroupItem[]>()
 
-    for (const group of linkGroups) {
+    for (const group of accessibleLinkGroups) {
       if (!group.parent_id) continue
       const current = map.get(group.parent_id) ?? []
       current.push(group)
@@ -1566,7 +1677,7 @@ export default function Home() {
     }
 
     return map
-  }, [linkGroups])
+  }, [accessibleLinkGroups])
 
   const ungroupedLinks = useMemo(() => {
     return filteredLinks
@@ -1617,16 +1728,41 @@ export default function Home() {
   const allGroupOptions = useMemo(() => {
     const result: Array<{ id: string; label: string }> = []
 
-    rootLinkGroups.forEach((parent) => {
-      result.push({ id: parent.id, label: parent.name })
-      const children = childGroupsMap.get(parent.id) ?? []
+    const adminRootGroups = [...linkGroups]
+      .filter((group) => !group.parent_id)
+      .sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.name.localeCompare(b.name, 'ja')
+      })
+
+    const adminChildGroupsMap = new Map<string, LinkGroupItem[]>()
+    for (const group of linkGroups) {
+      if (!group.parent_id) continue
+      const current = adminChildGroupsMap.get(group.parent_id) ?? []
+      current.push(group)
+      adminChildGroupsMap.set(group.parent_id, current)
+    }
+
+    for (const [key, value] of adminChildGroupsMap.entries()) {
+      adminChildGroupsMap.set(
+        key,
+        value.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.name.localeCompare(b.name, 'ja')
+        })
+      )
+    }
+
+    adminRootGroups.forEach((parent) => {
+      result.push({ id: parent.id, label: `${parent.name}${parent.admin_only ? '（管理者のみ）' : ''}` })
+      const children = adminChildGroupsMap.get(parent.id) ?? []
       children.forEach((child) => {
         result.push({ id: child.id, label: `└ ${child.name}` })
       })
     })
 
     return result
-  }, [rootLinkGroups, childGroupsMap])
+  }, [linkGroups])
 
   const resetForm = () => {
     setTitle('')
@@ -1650,6 +1786,7 @@ export default function Home() {
 
   const resetLinkCreateForm = () => {
     setNewParentGroupName('')
+    setNewParentGroupAdminOnly(false)
     setNewChildGroupName('')
     setChildParentGroupId('')
     setNewLinkTitle('')
@@ -1661,6 +1798,7 @@ export default function Home() {
     setEditingLinkGroupTarget(null)
     setEditLinkGroupName('')
     setEditLinkGroupParentId('')
+    setEditLinkGroupAdminOnly(false)
   }
 
   const closeLinkEditModal = () => {
@@ -1961,6 +2099,7 @@ export default function Home() {
       name: trimmed,
       parent_id: null,
       sort_order: maxSortOrder + 1,
+      admin_only: newParentGroupAdminOnly,
     })
 
     if (error) {
@@ -1978,6 +2117,7 @@ export default function Home() {
     )
 
     setNewParentGroupName('')
+    setNewParentGroupAdminOnly(false)
     await refreshLinksData()
     setLinkSubmitting(false)
   }
@@ -2006,10 +2146,13 @@ export default function Home() {
         ? Math.max(...siblingChildGroups.map((group) => group.sort_order))
         : -1
 
+    const parentGroup = linkGroups.find((group) => group.id === childParentGroupId)
+
     const { error } = await supabase.from('link_groups').insert({
       name: trimmed,
       parent_id: childParentGroupId,
       sort_order: maxSortOrder + 1,
+      admin_only: parentGroup?.admin_only ?? false,
     })
 
     if (error) {
@@ -2086,6 +2229,7 @@ export default function Home() {
     setEditingLinkGroupTarget(group)
     setEditLinkGroupName(group.name)
     setEditLinkGroupParentId(group.parent_id ?? '')
+    setEditLinkGroupAdminOnly(group.admin_only ?? false)
   }
 
   const handleSaveLinkGroupEdit = async () => {
@@ -2101,8 +2245,10 @@ export default function Home() {
       name: string
       parent_id?: string | null
       sort_order?: number
+      admin_only?: boolean
     } = {
       name: trimmedName,
+      admin_only: editLinkGroupAdminOnly,
     }
 
     if (editingLinkGroupTarget.parent_id) {
@@ -2602,28 +2748,487 @@ export default function Home() {
     fetchActivityLogs()
   }
 
+
+  const templateRootGroups = useMemo(() => {
+    return [...templateGroups]
+      .filter((group) => !group.parent_id)
+      .sort((a, b) => {
+        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+        return a.name.localeCompare(b.name, 'ja')
+      })
+  }, [templateGroups])
+
+  const templateChildGroupsMap = useMemo(() => {
+    const map = new Map<string, TemplateGroupItem[]>()
+
+    for (const group of templateGroups) {
+      if (!group.parent_id) continue
+      const current = map.get(group.parent_id) ?? []
+      current.push(group)
+      map.set(group.parent_id, current)
+    }
+
+    for (const [key, value] of map.entries()) {
+      map.set(
+        key,
+        value.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.name.localeCompare(b.name, 'ja')
+        })
+      )
+    }
+
+    return map
+  }, [templateGroups])
+
+  const filteredTemplates = useMemo(() => {
+    const keyword = templateSearch.trim().toLowerCase()
+    if (!keyword) return templates
+
+    return templates.filter((item) => {
+      return (
+        item.title.toLowerCase().includes(keyword) ||
+        item.subject.toLowerCase().includes(keyword) ||
+        item.body.toLowerCase().includes(keyword)
+      )
+    })
+  }, [templates, templateSearch])
+
+  const templatesByGroupId = useMemo(() => {
+    const map = new Map<string, TemplateItem[]>()
+
+    for (const item of filteredTemplates) {
+      if (!item.group_id) continue
+      const current = map.get(item.group_id) ?? []
+      current.push(item)
+      map.set(item.group_id, current)
+    }
+
+    for (const [key, value] of map.entries()) {
+      map.set(
+        key,
+        value.sort((a, b) => {
+          if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+          return a.title.localeCompare(b.title, 'ja')
+        })
+      )
+    }
+
+    return map
+  }, [filteredTemplates])
+
+  const visibleTemplateRootGroups = useMemo(() => {
+    return templateRootGroups.filter((group) => {
+      const ownTemplates = templatesByGroupId.get(group.id) ?? []
+      const childGroups = templateChildGroupsMap.get(group.id) ?? []
+      const visibleChildGroups = childGroups.filter((child) => {
+        const childTemplates = templatesByGroupId.get(child.id) ?? []
+        return childTemplates.length > 0
+      })
+      return ownTemplates.length > 0 || visibleChildGroups.length > 0
+    })
+  }, [templateRootGroups, templatesByGroupId, templateChildGroupsMap])
+
+  const allTemplateGroupOptions = useMemo(() => {
+    const result: Array<{ id: string; label: string }> = []
+
+    templateRootGroups.forEach((parent) => {
+      result.push({ id: parent.id, label: parent.name })
+      const children = templateChildGroupsMap.get(parent.id) ?? []
+      children.forEach((child) => {
+        result.push({ id: child.id, label: `└ ${child.name}` })
+      })
+    })
+
+    return result
+  }, [templateRootGroups, templateChildGroupsMap])
+
+  const resetTemplateCreateForm = () => {
+    setNewTemplateParentGroupName('')
+    setNewTemplateChildGroupName('')
+    setTemplateChildParentGroupId('')
+    setNewTemplateTitle('')
+    setNewTemplateSubject('')
+    setNewTemplateBody('')
+    setNewTemplateGroupId('')
+  }
+
+  const closeTemplateGroupEditModal = () => {
+    setEditingTemplateGroupTarget(null)
+    setEditTemplateGroupName('')
+    setEditTemplateGroupParentId('')
+  }
+
+  const closeTemplateEditModal = () => {
+    setEditingTemplateTarget(null)
+    setEditTemplateTitle('')
+    setEditTemplateSubject('')
+    setEditTemplateBody('')
+    setEditTemplateGroupId('')
+  }
+
+  const handleCreateTemplateParentGroup = async () => {
+    if (!isAdmin) return
+
+    const trimmed = newTemplateParentGroupName.trim()
+    if (!trimmed) {
+      alert('親グループ名を入力してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const maxSortOrder =
+      templateRootGroups.length > 0
+        ? Math.max(...templateRootGroups.map((group) => group.sort_order))
+        : -1
+
+    const { error } = await supabase.from('template_groups').insert({
+      name: trimmed,
+      parent_id: null,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('テンプレート親グループ作成エラー:', error)
+      alert('親グループの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    await logActivity('template_group_created', 'template_group', null, `親グループ ${trimmed} を作成`)
+    setNewTemplateParentGroupName('')
+    await refreshTemplatesData()
+    setLinkSubmitting(false)
+  }
+
+  const handleCreateTemplateChildGroup = async () => {
+    if (!isAdmin) return
+
+    const trimmed = newTemplateChildGroupName.trim()
+    if (!trimmed) {
+      alert('子グループ名を入力してください。')
+      return
+    }
+
+    if (!templateChildParentGroupId) {
+      alert('親グループを選択してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const siblingGroups = templateGroups.filter((group) => group.parent_id === templateChildParentGroupId)
+    const maxSortOrder =
+      siblingGroups.length > 0
+        ? Math.max(...siblingGroups.map((group) => group.sort_order))
+        : -1
+
+    const { error } = await supabase.from('template_groups').insert({
+      name: trimmed,
+      parent_id: templateChildParentGroupId,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('テンプレート子グループ作成エラー:', error)
+      alert('子グループの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    await logActivity('template_group_created', 'template_group', null, `子グループ ${trimmed} を作成`)
+    setNewTemplateChildGroupName('')
+    await refreshTemplatesData()
+    setLinkSubmitting(false)
+  }
+
+  const handleCreateTemplate = async () => {
+    if (!isAdmin) return
+
+    const trimmedTitle = newTemplateTitle.trim()
+    const trimmedSubject = newTemplateSubject.trim()
+    const trimmedBody = newTemplateBody.trim()
+
+    if (!trimmedTitle || !trimmedBody) {
+      alert('タイトルと本文を入力してください。')
+      return
+    }
+
+    setLinkSubmitting(true)
+
+    const sameGroupTemplates = templates.filter((item) => (item.group_id ?? '') === (newTemplateGroupId || ''))
+    const maxSortOrder =
+      sameGroupTemplates.length > 0
+        ? Math.max(...sameGroupTemplates.map((item) => item.sort_order))
+        : -1
+
+    const { error } = await supabase.from('templates').insert({
+      title: trimmedTitle,
+      subject: trimmedSubject,
+      body: trimmedBody,
+      group_id: newTemplateGroupId || null,
+      sort_order: maxSortOrder + 1,
+    })
+
+    if (error) {
+      console.error('テンプレート作成エラー:', error)
+      alert('テンプレートの作成に失敗しました。')
+      setLinkSubmitting(false)
+      return
+    }
+
+    await logActivity('template_created', 'template', null, `${trimmedTitle} を作成`)
+    setNewTemplateTitle('')
+    setNewTemplateSubject('')
+    setNewTemplateBody('')
+    setNewTemplateGroupId('')
+    await refreshTemplatesData()
+    setLinkSubmitting(false)
+  }
+
+  const handleEditTemplateGroup = (group: TemplateGroupItem) => {
+    if (!isAdmin) return
+    setEditingTemplateGroupTarget(group)
+    setEditTemplateGroupName(group.name)
+    setEditTemplateGroupParentId(group.parent_id ?? '')
+  }
+
+  const handleSaveTemplateGroupEdit = async () => {
+    if (!isAdmin || !editingTemplateGroupTarget) return
+
+    const trimmedName = editTemplateGroupName.trim()
+    if (!trimmedName) {
+      alert('グループ名を入力してください。')
+      return
+    }
+
+    const updatePayload: { name: string; parent_id?: string | null; sort_order?: number } = {
+      name: trimmedName,
+    }
+
+    if (editingTemplateGroupTarget.parent_id) {
+      if (!editTemplateGroupParentId) {
+        alert('親グループを選択してください。')
+        return
+      }
+      updatePayload.parent_id = editTemplateGroupParentId
+      if (editTemplateGroupParentId !== editingTemplateGroupTarget.parent_id) {
+        const siblings = templateGroups.filter((group) => group.parent_id === editTemplateGroupParentId && group.id !== editingTemplateGroupTarget.id)
+        const maxSortOrder = siblings.length > 0 ? Math.max(...siblings.map((group) => group.sort_order)) : -1
+        updatePayload.sort_order = maxSortOrder + 1
+      }
+    }
+
+    const { error } = await supabase.from('template_groups').update(updatePayload).eq('id', editingTemplateGroupTarget.id)
+    if (error) {
+      console.error('テンプレートグループ編集エラー:', error)
+      alert('グループの更新に失敗しました。')
+      return
+    }
+
+    await logActivity('template_group_updated', 'template_group', editingTemplateGroupTarget.id, `${editingTemplateGroupTarget.name} を ${trimmedName} に更新`)
+    closeTemplateGroupEditModal()
+    await refreshTemplatesData()
+  }
+
+  const handleDeleteTemplateGroup = async (group: TemplateGroupItem) => {
+    if (!isAdmin) return
+
+    const childGroups = templateGroups.filter((item) => item.parent_id === group.id)
+    const targetGroupIds = [group.id, ...childGroups.map((item) => item.id)]
+    const confirmed = window.confirm(childGroups.length > 0 ? 'この親グループを削除すると、子グループと配下テンプレートも削除されます。削除しますか？' : 'このグループと配下テンプレートを削除しますか？')
+    if (!confirmed) return
+
+    const { error: templatesError } = await supabase.from('templates').delete().in('group_id', targetGroupIds)
+    if (templatesError) {
+      console.error('テンプレート削除エラー:', templatesError)
+      alert('グループ配下のテンプレート削除に失敗しました。')
+      return
+    }
+
+    if (childGroups.length > 0) {
+      const { error: childError } = await supabase.from('template_groups').delete().in('id', childGroups.map((item) => item.id))
+      if (childError) {
+        console.error('テンプレート子グループ削除エラー:', childError)
+        alert('子グループの削除に失敗しました。')
+        return
+      }
+    }
+
+    const { error } = await supabase.from('template_groups').delete().eq('id', group.id)
+    if (error) {
+      console.error('テンプレートグループ削除エラー:', error)
+      alert('グループの削除に失敗しました。')
+      return
+    }
+
+    await logActivity('template_group_deleted', 'template_group', group.id, `${group.name} を削除`)
+    if (selectedTemplateGroupId === group.id) setSelectedTemplateGroupId(null)
+    await refreshTemplatesData()
+  }
+
+  const handleEditTemplate = (item: TemplateItem) => {
+    if (!isAdmin) return
+    setEditingTemplateTarget(item)
+    setEditTemplateTitle(item.title)
+    setEditTemplateSubject(item.subject)
+    setEditTemplateBody(item.body)
+    setEditTemplateGroupId(item.group_id ?? '')
+  }
+
+  const handleSaveTemplateEdit = async () => {
+    if (!isAdmin || !editingTemplateTarget) return
+
+    const trimmedTitle = editTemplateTitle.trim()
+    const trimmedSubject = editTemplateSubject.trim()
+    const trimmedBody = editTemplateBody.trim()
+
+    if (!trimmedTitle || !trimmedBody) {
+      alert('タイトルと本文を入力してください。')
+      return
+    }
+
+    const nextGroupId = editTemplateGroupId || null
+    const updatePayload: { title: string; subject: string; body: string; group_id: string | null; sort_order?: number } = {
+      title: trimmedTitle,
+      subject: trimmedSubject,
+      body: trimmedBody,
+      group_id: nextGroupId,
+    }
+
+    if ((editingTemplateTarget.group_id ?? null) !== nextGroupId) {
+      const siblings = templates.filter((item) => (item.group_id ?? null) === nextGroupId && item.id !== editingTemplateTarget.id)
+      const maxSortOrder = siblings.length > 0 ? Math.max(...siblings.map((item) => item.sort_order)) : -1
+      updatePayload.sort_order = maxSortOrder + 1
+    }
+
+    const { error } = await supabase.from('templates').update(updatePayload).eq('id', editingTemplateTarget.id)
+    if (error) {
+      console.error('テンプレート編集エラー:', error)
+      alert('テンプレートの更新に失敗しました。')
+      return
+    }
+
+    await logActivity('template_updated', 'template', editingTemplateTarget.id, `${editingTemplateTarget.title} を ${trimmedTitle} に更新`)
+    closeTemplateEditModal()
+    await refreshTemplatesData()
+  }
+
+  const swapTemplateGroupSortOrder = async (currentGroup: TemplateGroupItem, targetGroup: TemplateGroupItem) => {
+    const [{ error: currentError }, { error: targetError }] = await Promise.all([
+      supabase.from('template_groups').update({ sort_order: targetGroup.sort_order }).eq('id', currentGroup.id),
+      supabase.from('template_groups').update({ sort_order: currentGroup.sort_order }).eq('id', targetGroup.id),
+    ])
+
+    if (currentError || targetError) {
+      console.error('テンプレートグループ並び替えエラー:', currentError ?? targetError)
+      alert('グループの並び替えに失敗しました。')
+      return
+    }
+
+    await refreshTemplatesData()
+  }
+
+  const handleMoveTemplateRootGroup = async (group: TemplateGroupItem, direction: 'up' | 'down') => {
+    if (!isAdmin) return
+    const currentIndex = templateRootGroups.findIndex((item) => item.id === group.id)
+    if (currentIndex === -1) return
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetGroup = templateRootGroups[targetIndex]
+    if (!targetGroup) return
+    await swapTemplateGroupSortOrder(group, targetGroup)
+  }
+
+  const handleMoveTemplateChildGroup = async (group: TemplateGroupItem, direction: 'up' | 'down') => {
+    if (!isAdmin || !group.parent_id) return
+    const siblings = templateChildGroupsMap.get(group.parent_id) ?? []
+    const currentIndex = siblings.findIndex((item) => item.id === group.id)
+    if (currentIndex === -1) return
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetGroup = siblings[targetIndex]
+    if (!targetGroup) return
+    await swapTemplateGroupSortOrder(group, targetGroup)
+  }
+
+  const swapTemplateSortOrder = async (currentItem: TemplateItem, targetItem: TemplateItem) => {
+    const [{ error: currentError }, { error: targetError }] = await Promise.all([
+      supabase.from('templates').update({ sort_order: targetItem.sort_order }).eq('id', currentItem.id),
+      supabase.from('templates').update({ sort_order: currentItem.sort_order }).eq('id', targetItem.id),
+    ])
+
+    if (currentError || targetError) {
+      console.error('テンプレート並び替えエラー:', currentError ?? targetError)
+      alert('テンプレートの並び替えに失敗しました。')
+      return
+    }
+
+    await refreshTemplatesData()
+  }
+
+  const handleMoveTemplate = async (item: TemplateItem, direction: 'up' | 'down') => {
+    if (!isAdmin) return
+    const siblings = item.group_id ? templatesByGroupId.get(item.group_id) ?? [] : []
+    const currentIndex = siblings.findIndex((current) => current.id === item.id)
+    if (currentIndex === -1) return
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const targetItem = siblings[targetIndex]
+    if (!targetItem) return
+    await swapTemplateSortOrder(item, targetItem)
+  }
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!isAdmin) return
+    const targetTemplate = templates.find((item) => item.id === templateId)
+    const confirmed = window.confirm('このテンプレートを削除しますか？')
+    if (!confirmed) return
+
+    const { error } = await supabase.from('templates').delete().eq('id', templateId)
+    if (error) {
+      console.error('テンプレート削除エラー:', error)
+      alert('テンプレートの削除に失敗しました。')
+      return
+    }
+
+    await logActivity('template_deleted', 'template', templateId, targetTemplate ? `${targetTemplate.title} を削除` : 'テンプレートを削除')
+    await refreshTemplatesData()
+  }
+
+  const handleCopyTemplate = async (item: TemplateItem) => {
+    const text = ['件名：' + (item.subject || ''), '', item.body || ''].join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('テンプレートをコピーしました。')
+    } catch (error) {
+      console.error('テンプレートコピーエラー:', error)
+      alert('コピーに失敗しました。')
+    }
+  }
+
   const menuItems: Array<{
     key: ViewKey
     label: string
     icon: ReactNode
-  }> = [
-    { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
-    { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
-    { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
-    { key: 'history', label: '履歴', icon: <HistoryIcon /> },
-    ...(isAdmin
-      ? [
-          { key: 'todo' as ViewKey, label: 'ToDo', icon: <TodoIcon /> },
-          {
-            key: 'todo_history' as ViewKey,
-            label: 'ToDo履歴',
-            icon: <HistoryIcon />,
-          },
-        ]
-      : []),
-    { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
-    { key: 'settings', label: '設定', icon: <SettingsIcon /> },
-  ]
+  }> = isAdmin
+    ? [
+        { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
+        { key: 'todo', label: 'ToDo', icon: <TodoIcon /> },
+        { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
+        { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
+        { key: 'todo_history', label: 'ToDo履歴', icon: <HistoryIcon /> },
+        { key: 'history', label: '依頼履歴', icon: <HistoryIcon /> },
+        { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
+        { key: 'templates', label: 'テンプレート', icon: <HistoryIcon /> },
+        { key: 'settings', label: '設定', icon: <SettingsIcon /> },
+      ]
+    : [
+        { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
+        { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
+        { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
+        { key: 'history', label: '依頼履歴', icon: <HistoryIcon /> },
+        { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
+        { key: 'settings', label: '設定', icon: <SettingsIcon /> },
+      ]
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
@@ -3632,6 +4237,22 @@ export default function Home() {
                 />
               </div>
 
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  公開範囲
+                </label>
+                <select
+                  value={newParentGroupAdminOnly ? 'admin' : 'public'}
+                  onChange={(event) =>
+                    setNewParentGroupAdminOnly(event.target.value === 'admin')
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="public">一般公開</option>
+                  <option value="admin">管理者のみ</option>
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={handleCreateParentGroup}
@@ -3940,52 +4561,64 @@ export default function Home() {
         </div>
       </div>
 
-      {!isAdmin && (
-        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between">
-              <p className="text-[15px] font-semibold text-slate-800">操作</p>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                クイック
-              </span>
-            </div>
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-[15px] font-semibold text-slate-800">操作</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              クイック
+            </span>
+          </div>
 
-            <div className="mt-5 flex-1 space-y-3">
+          <div className="mt-5 flex-1 space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm()
+                setTodoFormOpen(false)
+                setCreateFormOpen((prev) => !prev)
+                setActiveView('dashboard')
+              }}
+              className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
+            >
+              <span>新規依頼を追加</span>
+              <PlusIcon />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('received')}
+              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+            >
+              <span>受信依頼を見る</span>
+              <ChevronRightIcon />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveView('sent')}
+              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+            >
+              <span>送信依頼を見る</span>
+              <ChevronRightIcon />
+            </button>
+
+            {isAdmin && (
               <button
                 type="button"
                 onClick={() => {
-                  resetForm()
                   setTodoFormOpen(false)
-                  setCreateFormOpen((prev) => !prev)
-                  setActiveView('dashboard')
+                  setActiveView('todo')
                 }}
-                className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
-              >
-                <span>新規依頼を追加</span>
-                <PlusIcon />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveView('received')}
                 className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               >
-                <span>受信依頼を見る</span>
+                <span>ToDoを見る</span>
                 <ChevronRightIcon />
               </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveView('sent')}
-                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-              >
-                <span>送信依頼を見る</span>
-                <ChevronRightIcon />
-              </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {isAdmin && (
         <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
@@ -4369,7 +5002,7 @@ export default function Home() {
       )
     }
 
-    const selectedGroup = linkGroups.find((group) => group.id === selectedLinkGroupId)
+    const selectedGroup = accessibleLinkGroups.find((group) => group.id === selectedLinkGroupId)
     const selectedChildGroups = childGroupsMap.get(selectedLinkGroupId) ?? []
     const selectedOwnLinks = linksByGroupId.get(selectedLinkGroupId) ?? []
 
@@ -4557,6 +5190,18 @@ export default function Home() {
               />
             </div>
 
+            {!isChildGroup && (
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={editLinkGroupAdminOnly}
+                  onChange={(event) => setEditLinkGroupAdminOnly(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <span>管理者のみ開けるグループにする</span>
+              </label>
+            )}
+
             {isChildGroup && (
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">親グループ</label>
@@ -4678,6 +5323,431 @@ export default function Home() {
   }
 
 
+  const renderTemplateAdminCreatePanel = () => (
+    <div className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">親グループ追加</p>
+          <div className="mt-3 space-y-3">
+            <input
+              value={newTemplateParentGroupName}
+              onChange={(event) => setNewTemplateParentGroupName(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              placeholder="親グループ名を入力"
+            />
+            <button
+              type="button"
+              onClick={handleCreateTemplateParentGroup}
+              disabled={linkSubmitting}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              親グループを追加
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">子グループ追加</p>
+          <div className="mt-3 space-y-3">
+            <select
+              value={templateChildParentGroupId}
+              onChange={(event) => setTemplateChildParentGroupId(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="">親グループを選択</option>
+              {templateRootGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={newTemplateChildGroupName}
+              onChange={(event) => setNewTemplateChildGroupName(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              placeholder="子グループ名を入力"
+            />
+            <button
+              type="button"
+              onClick={handleCreateTemplateChildGroup}
+              disabled={linkSubmitting}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              子グループを追加
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">テンプレート追加</p>
+          <div className="mt-3 space-y-3">
+            <select
+              value={newTemplateGroupId}
+              onChange={(event) => setNewTemplateGroupId(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+            >
+              <option value="">所属グループを選択</option>
+              {allTemplateGroupOptions.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.label}
+                </option>
+              ))}
+            </select>
+            <input
+              value={newTemplateTitle}
+              onChange={(event) => setNewTemplateTitle(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              placeholder="タイトル"
+            />
+            <input
+              value={newTemplateSubject}
+              onChange={(event) => setNewTemplateSubject(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              placeholder="件名"
+            />
+            <textarea
+              value={newTemplateBody}
+              onChange={(event) => setNewTemplateBody(event.target.value)}
+              rows={5}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+              placeholder="本文"
+            />
+            <button
+              type="button"
+              onClick={handleCreateTemplate}
+              disabled={linkSubmitting}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+            >
+              テンプレートを追加
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderTemplateCard = (item: TemplateItem, options?: { disableMoveUp?: boolean; disableMoveDown?: boolean }) => (
+    <div key={item.id} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold text-slate-900">{item.title}</p>
+          {item.subject && <p className="mt-3 text-sm text-slate-600">件名：{item.subject}</p>}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleCopyTemplate(item)}
+            className="inline-flex h-9 items-center rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            コピー
+          </button>
+
+          {isAdmin && (
+            <>
+              {renderMoveButtons({
+                onMoveUp: () => handleMoveTemplate(item, 'up'),
+                onMoveDown: () => handleMoveTemplate(item, 'down'),
+                disableUp: options?.disableMoveUp ?? false,
+                disableDown: options?.disableMoveDown ?? false,
+              })}
+              <button
+                type="button"
+                onClick={() => handleEditTemplate(item)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                title="編集"
+              >
+                <EditIcon />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteTemplate(item.id)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                title="削除"
+              >
+                <TrashIcon />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+        <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{item.body}</pre>
+      </div>
+    </div>
+  )
+
+  const renderTemplates = () => {
+    if (!selectedTemplateGroupId) {
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">テンプレート</h2>
+            </div>
+
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <div className="w-full sm:w-[320px]">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <SearchIcon />
+                  </span>
+                  <input
+                    value={templateSearch}
+                    onChange={(event) => setTemplateSearch(event.target.value)}
+                    placeholder="タイトル・件名・本文で検索"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkCreateOpen((prev) => !prev)
+                  if (linkCreateOpen) resetTemplateCreateForm()
+                }}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                {linkCreateOpen ? '閉じる' : '追加'}
+              </button>
+            </div>
+          </div>
+
+          {linkCreateOpen && renderTemplateAdminCreatePanel()}
+
+          {visibleTemplateRootGroups.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {visibleTemplateRootGroups.map((group, index) => (
+                <div key={group.id} className="group rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <button type="button" onClick={() => setSelectedTemplateGroupId(group.id)} className="min-w-0 flex-1 text-left">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
+                          <HistoryIcon />
+                        </span>
+                        <p className="truncate text-base font-semibold text-slate-900">{group.name}</p>
+                      </div>
+                    </button>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      {renderMoveButtons({
+                        onMoveUp: () => handleMoveTemplateRootGroup(group, 'up'),
+                        onMoveDown: () => handleMoveTemplateRootGroup(group, 'down'),
+                        disableUp: index === 0,
+                        disableDown: index === visibleTemplateRootGroups.length - 1,
+                      })}
+                      <button type="button" onClick={() => handleEditTemplateGroup(group)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
+                      <button type="button" onClick={() => handleDeleteTemplateGroup(group)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+              該当するテンプレートがありません。
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    const selectedGroup = templateGroups.find((group) => group.id === selectedTemplateGroupId)
+    const selectedChildGroups = templateChildGroupsMap.get(selectedTemplateGroupId) ?? []
+    const selectedOwnTemplates = templatesByGroupId.get(selectedTemplateGroupId) ?? []
+
+    if (!selectedGroup) {
+      return <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">グループが見つかりません。</div>
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <button type="button" onClick={() => setSelectedTemplateGroupId(null)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-900">
+              <span>←</span>
+              <span>戻る</span>
+            </button>
+            <h2 className="mt-3 text-xl font-semibold text-slate-900">{selectedGroup.name}</h2>
+          </div>
+
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <div className="w-full sm:w-[320px]">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <SearchIcon />
+                </span>
+                <input
+                  value={templateSearch}
+                  onChange={(event) => setTemplateSearch(event.target.value)}
+                  placeholder="タイトル・件名・本文で検索"
+                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-slate-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {renderMoveButtons({
+                onMoveUp: () => handleMoveTemplateRootGroup(selectedGroup, 'up'),
+                onMoveDown: () => handleMoveTemplateRootGroup(selectedGroup, 'down'),
+                disableUp: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
+                disableDown: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === templateRootGroups.length - 1,
+              })}
+              <button type="button" onClick={() => handleEditTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
+              <button type="button" onClick={() => handleDeleteTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+            </div>
+          </div>
+        </div>
+
+        {linkCreateOpen && renderTemplateAdminCreatePanel()}
+
+        {selectedOwnTemplates.length > 0 && (
+          <div className="space-y-3">
+            {selectedOwnTemplates.map((item, index) => renderTemplateCard(item, { disableMoveUp: index === 0, disableMoveDown: index === selectedOwnTemplates.length - 1 }))}
+          </div>
+        )}
+
+        {selectedChildGroups.map((child, childIndex) => {
+          const childTemplates = templatesByGroupId.get(child.id) ?? []
+          if (childTemplates.length === 0) return null
+
+          return (
+            <div key={child.id} className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="truncate text-base font-semibold text-slate-900">{child.name}</p>
+                <div className="flex shrink-0 items-center gap-2">
+                  {renderMoveButtons({
+                    onMoveUp: () => handleMoveTemplateChildGroup(child, 'up'),
+                    onMoveDown: () => handleMoveTemplateChildGroup(child, 'down'),
+                    disableUp: childIndex === 0,
+                    disableDown: childIndex === selectedChildGroups.length - 1,
+                  })}
+                  <button type="button" onClick={() => handleEditTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
+                  <button type="button" onClick={() => handleDeleteTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {childTemplates.map((item, index) => renderTemplateCard(item, { disableMoveUp: index === 0, disableMoveDown: index === childTemplates.length - 1 }))}
+              </div>
+            </div>
+          )
+        })}
+
+        {selectedOwnTemplates.length === 0 && selectedChildGroups.every((child) => (templatesByGroupId.get(child.id) ?? []).length === 0) && (
+          <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
+            該当するテンプレートがありません。
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderTemplateGroupEditModal = () => {
+    if (!editingTemplateGroupTarget) return null
+    const isChildGroup = !!editingTemplateGroupTarget.parent_id
+
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
+        <div className="w-full max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">{isChildGroup ? '子グループを編集' : 'グループを編集'}</h3>
+              <p className="mt-1 text-sm text-slate-500">必要な項目を修正して保存してください</p>
+            </div>
+            <button type="button" onClick={closeTemplateGroupEditModal} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="閉じる"><CloseIcon /></button>
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">グループ名</label>
+              <input
+                value={editTemplateGroupName}
+                onChange={(event) => setEditTemplateGroupName(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                placeholder="グループ名を入力"
+              />
+            </div>
+            {isChildGroup && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">親グループ</label>
+                <select
+                  value={editTemplateGroupParentId}
+                  onChange={(event) => setEditTemplateGroupParentId(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
+                >
+                  <option value="">選択してください</option>
+                  {templateRootGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={closeTemplateGroupEditModal} className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">キャンセル</button>
+            <button type="button" onClick={handleSaveTemplateGroupEdit} className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">保存する</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderTemplateEditModal = () => {
+    if (!editingTemplateTarget) return null
+
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/50 px-4">
+        <div className="w-full max-w-2xl rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">テンプレートを編集</h3>
+              <p className="mt-1 text-sm text-slate-500">タイトル・件名・本文・所属グループを変更できます</p>
+            </div>
+            <button type="button" onClick={closeTemplateEditModal} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="閉じる"><CloseIcon /></button>
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">タイトル</label>
+              <input value={editTemplateTitle} onChange={(event) => setEditTemplateTitle(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400" placeholder="タイトル" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">件名</label>
+              <input value={editTemplateSubject} onChange={(event) => setEditTemplateSubject(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400" placeholder="件名" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">本文</label>
+              <textarea value={editTemplateBody} onChange={(event) => setEditTemplateBody(event.target.value)} rows={10} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400" placeholder="本文" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">所属グループ</label>
+              <select value={editTemplateGroupId} onChange={(event) => setEditTemplateGroupId(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400">
+                <option value="">未分類</option>
+                {allTemplateGroupOptions.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={closeTemplateEditModal} className="inline-flex h-11 items-center rounded-2xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">キャンセル</button>
+            <button type="button" onClick={handleSaveTemplateEdit} className="inline-flex h-11 items-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">保存する</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
 
   const renderSettings = () => {
     const activeUsersCount = users.filter((item) => item.is_active !== false).length
@@ -4746,6 +5816,7 @@ export default function Home() {
                 <option value="sent">送信依頼</option>
                 <option value="history">履歴</option>
                 <option value="links">リンク一覧</option>
+                {isAdmin && <option value="templates">テンプレート</option>}
               </select>
             </div>
 
@@ -5293,6 +6364,7 @@ export default function Home() {
               {!createFormOpen && !todoFormOpen && activeView === 'todo' && renderTodo()}
               {!createFormOpen && !todoFormOpen && activeView === 'todo_history' && renderTodoHistory()}
               {!createFormOpen && !todoFormOpen && activeView === 'links' && renderLinks()}
+              {!createFormOpen && !todoFormOpen && activeView === 'templates' && renderTemplates()}
               {!createFormOpen && !todoFormOpen && activeView === 'settings' && renderSettings()}
             </div>
           </div>
