@@ -3209,29 +3209,26 @@ export default function Home() {
     key: ViewKey
     label: string
     icon: ReactNode
-  }> = [
-    { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
-    { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
-    { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
-    { key: 'history', label: '履歴', icon: <HistoryIcon /> },
-    ...(isAdmin
-      ? [
-          { key: 'todo' as ViewKey, label: 'ToDo', icon: <TodoIcon /> },
-          {
-            key: 'todo_history' as ViewKey,
-            label: 'ToDo履歴',
-            icon: <HistoryIcon />,
-          },
-          {
-            key: 'templates' as ViewKey,
-            label: 'テンプレート',
-            icon: <HistoryIcon />,
-          },
-        ]
-      : []),
-    { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
-    { key: 'settings', label: '設定', icon: <SettingsIcon /> },
-  ]
+  }> = isAdmin
+    ? [
+        { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
+        { key: 'todo', label: 'ToDo', icon: <TodoIcon /> },
+        { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
+        { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
+        { key: 'todo_history', label: 'ToDo履歴', icon: <HistoryIcon /> },
+        { key: 'history', label: '依頼履歴', icon: <HistoryIcon /> },
+        { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
+        { key: 'templates', label: 'テンプレート', icon: <HistoryIcon /> },
+        { key: 'settings', label: '設定', icon: <SettingsIcon /> },
+      ]
+    : [
+        { key: 'dashboard', label: 'ダッシュボード', icon: <DashboardIcon /> },
+        { key: 'received', label: '受信依頼', icon: <InboxIcon /> },
+        { key: 'sent', label: '送信依頼', icon: <SendIcon /> },
+        { key: 'history', label: '依頼履歴', icon: <HistoryIcon /> },
+        { key: 'links', label: 'リンク一覧', icon: <LinkListIcon /> },
+        { key: 'settings', label: '設定', icon: <SettingsIcon /> },
+      ]
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
@@ -4548,64 +4545,52 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
-            <p className="text-[15px] font-semibold text-slate-800">操作</p>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              クイック
-            </span>
-          </div>
+      {!isAdmin && (
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between">
+              <p className="text-[15px] font-semibold text-slate-800">操作</p>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                クイック
+              </span>
+            </div>
 
-          <div className="mt-5 flex-1 space-y-3">
-            <button
-              type="button"
-              onClick={() => {
-                resetForm()
-                setTodoFormOpen(false)
-                setCreateFormOpen((prev) => !prev)
-                setActiveView('dashboard')
-              }}
-              className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
-            >
-              <span>新規依頼を追加</span>
-              <PlusIcon />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('received')}
-              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-            >
-              <span>受信依頼を見る</span>
-              <ChevronRightIcon />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('sent')}
-              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-            >
-              <span>送信依頼を見る</span>
-              <ChevronRightIcon />
-            </button>
-
-            {isAdmin && (
+            <div className="mt-5 flex-1 space-y-3">
               <button
                 type="button"
                 onClick={() => {
+                  resetForm()
                   setTodoFormOpen(false)
-                  setActiveView('todo')
+                  setCreateFormOpen((prev) => !prev)
+                  setActiveView('dashboard')
                 }}
+                className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
+              >
+                <span>新規依頼を追加</span>
+                <PlusIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveView('received')}
                 className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               >
-                <span>ToDoを見る</span>
+                <span>受信依頼を見る</span>
                 <ChevronRightIcon />
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setActiveView('sent')}
+                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                <span>送信依頼を見る</span>
+                <ChevronRightIcon />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {isAdmin && (
         <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
@@ -4759,7 +4744,7 @@ export default function Home() {
         className="flex w-full items-center justify-between rounded-[28px] border border-slate-200 bg-white px-5 py-4 text-left shadow-sm transition hover:bg-slate-50"
       >
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">履歴</h2>
+          <h2 className="text-lg font-semibold text-slate-900">依頼履歴</h2>
           <p className="mt-1 text-sm text-slate-500">
             完了済みの依頼を確認できます
           </p>
