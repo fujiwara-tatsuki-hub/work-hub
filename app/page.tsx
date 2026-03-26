@@ -52,7 +52,6 @@ type LinkGroupItem = {
   name: string
   parent_id: string | null
   sort_order: number
-  admin_only: boolean
   created_at: string
   updated_at: string
 }
@@ -895,7 +894,6 @@ export default function Home() {
   const [todoDeadline, setTodoDeadline] = useState('')
 
   const [newParentGroupName, setNewParentGroupName] = useState('')
-  const [newParentGroupAdminOnly, setNewParentGroupAdminOnly] = useState(false)
   const [newChildGroupName, setNewChildGroupName] = useState('')
   const [childParentGroupId, setChildParentGroupId] = useState('')
   const [newLinkTitle, setNewLinkTitle] = useState('')
@@ -911,7 +909,6 @@ export default function Home() {
   const [editingLinkGroupTarget, setEditingLinkGroupTarget] = useState<LinkGroupItem | null>(null)
   const [editLinkGroupName, setEditLinkGroupName] = useState('')
   const [editLinkGroupParentId, setEditLinkGroupParentId] = useState('')
-  const [editLinkGroupAdminOnly, setEditLinkGroupAdminOnly] = useState(false)
 
   const [editingLinkTarget, setEditingLinkTarget] = useState<LinkItem | null>(null)
   const [editLinkTitle, setEditLinkTitle] = useState('')
@@ -1137,7 +1134,7 @@ export default function Home() {
   const fetchLinkGroups = async () => {
     const { data, error } = await supabase
       .from('link_groups')
-      .select('id, name, parent_id, sort_order, admin_only, created_at, updated_at')
+      .select('id, name, parent_id, sort_order, created_at, updated_at')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
 
@@ -1539,24 +1536,19 @@ export default function Home() {
     return links.filter((link) => link.title.toLowerCase().includes(keyword))
   }, [links, linkSearch])
 
-  const accessibleLinkGroups = useMemo(() => {
-    if (isAdmin) return linkGroups
-    return linkGroups.filter((group) => !group.admin_only)
-  }, [linkGroups, isAdmin])
-
   const rootLinkGroups = useMemo(() => {
-    return [...accessibleLinkGroups]
+    return [...linkGroups]
       .filter((group) => !group.parent_id)
       .sort((a, b) => {
         if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
         return a.name.localeCompare(b.name, 'ja')
       })
-  }, [accessibleLinkGroups])
+  }, [linkGroups])
 
   const childGroupsMap = useMemo(() => {
     const map = new Map<string, LinkGroupItem[]>()
 
-    for (const group of accessibleLinkGroups) {
+    for (const group of linkGroups) {
       if (!group.parent_id) continue
       const current = map.get(group.parent_id) ?? []
       current.push(group)
@@ -1574,7 +1566,7 @@ export default function Home() {
     }
 
     return map
-  }, [accessibleLinkGroups])
+  }, [linkGroups])
 
   const ungroupedLinks = useMemo(() => {
     return filteredLinks
@@ -1658,7 +1650,6 @@ export default function Home() {
 
   const resetLinkCreateForm = () => {
     setNewParentGroupName('')
-    setNewParentGroupAdminOnly(false)
     setNewChildGroupName('')
     setChildParentGroupId('')
     setNewLinkTitle('')
@@ -1670,7 +1661,6 @@ export default function Home() {
     setEditingLinkGroupTarget(null)
     setEditLinkGroupName('')
     setEditLinkGroupParentId('')
-    setEditLinkGroupAdminOnly(false)
   }
 
   const closeLinkEditModal = () => {
@@ -1971,7 +1961,6 @@ export default function Home() {
       name: trimmed,
       parent_id: null,
       sort_order: maxSortOrder + 1,
-      admin_only: newParentGroupAdminOnly,
     })
 
     if (error) {
@@ -1989,7 +1978,6 @@ export default function Home() {
     )
 
     setNewParentGroupName('')
-    setNewParentGroupAdminOnly(false)
     await refreshLinksData()
     setLinkSubmitting(false)
   }
@@ -2098,7 +2086,6 @@ export default function Home() {
     setEditingLinkGroupTarget(group)
     setEditLinkGroupName(group.name)
     setEditLinkGroupParentId(group.parent_id ?? '')
-    setEditLinkGroupAdminOnly(group.admin_only ?? false)
   }
 
   const handleSaveLinkGroupEdit = async () => {
@@ -2114,10 +2101,8 @@ export default function Home() {
       name: string
       parent_id?: string | null
       sort_order?: number
-      admin_only?: boolean
     } = {
       name: trimmedName,
-      admin_only: editLinkGroupAdminOnly,
     }
 
     if (editingLinkGroupTarget.parent_id) {
@@ -3647,41 +3632,6 @@ export default function Home() {
                 />
               </div>
 
-              <div className="mt-4">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  公開範囲
-                </label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewParentGroupAdminOnly(false)}
-                    className={cn(
-                      'inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition',
-                      !newParentGroupAdminOnly
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    一般公開
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewParentGroupAdminOnly(true)}
-                    className={cn(
-                      'inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition',
-                      newParentGroupAdminOnly
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    管理者のみ
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  管理者のみを選ぶと、一般ユーザーには表示されません。
-                </p>
-              </div>
-
               <button
                 type="button"
                 onClick={handleCreateParentGroup}
@@ -3990,64 +3940,52 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
-            <p className="text-[15px] font-semibold text-slate-800">操作</p>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-              クイック
-            </span>
-          </div>
+      {!isAdmin && (
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between">
+              <p className="text-[15px] font-semibold text-slate-800">操作</p>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                クイック
+              </span>
+            </div>
 
-          <div className="mt-5 flex-1 space-y-3">
-            <button
-              type="button"
-              onClick={() => {
-                resetForm()
-                setTodoFormOpen(false)
-                setCreateFormOpen((prev) => !prev)
-                setActiveView('dashboard')
-              }}
-              className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
-            >
-              <span>新規依頼を追加</span>
-              <PlusIcon />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('received')}
-              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-            >
-              <span>受信依頼を見る</span>
-              <ChevronRightIcon />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('sent')}
-              className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-            >
-              <span>送信依頼を見る</span>
-              <ChevronRightIcon />
-            </button>
-
-            {isAdmin && (
+            <div className="mt-5 flex-1 space-y-3">
               <button
                 type="button"
                 onClick={() => {
+                  resetForm()
                   setTodoFormOpen(false)
-                  setActiveView('todo')
+                  setCreateFormOpen((prev) => !prev)
+                  setActiveView('dashboard')
                 }}
+                className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
+              >
+                <span>新規依頼を追加</span>
+                <PlusIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveView('received')}
                 className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               >
-                <span>ToDoを見る</span>
+                <span>受信依頼を見る</span>
                 <ChevronRightIcon />
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => setActiveView('sent')}
+                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              >
+                <span>送信依頼を見る</span>
+                <ChevronRightIcon />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {isAdmin && (
         <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
@@ -4634,41 +4572,6 @@ export default function Home() {
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
-
-            {!isChildGroup && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">公開範囲</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditLinkGroupAdminOnly(false)}
-                    className={cn(
-                      'inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition',
-                      !editLinkGroupAdminOnly
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    一般公開
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditLinkGroupAdminOnly(true)}
-                    className={cn(
-                      'inline-flex h-11 items-center justify-center rounded-2xl border px-4 text-sm font-semibold transition',
-                      editLinkGroupAdminOnly
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    管理者のみ
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  管理者のみを選ぶと、一般ユーザーには表示されません。
-                </p>
               </div>
             )}
           </div>
