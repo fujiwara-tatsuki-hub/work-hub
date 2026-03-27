@@ -3233,7 +3233,7 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'flex h-full flex-col border-r border-slate-800/70 bg-slate-950 text-white',
+        'flex h-full flex-col border-r border-slate-800/60 bg-[linear-gradient(180deg,rgba(6,18,34,0.98)_0%,rgba(12,27,44,0.98)_52%,rgba(8,18,34,0.98)_100%)] text-white shadow-[0_0_40px_rgba(59,130,246,0.14)]',
         mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
       )}
     >
@@ -4133,7 +4133,7 @@ export default function Home() {
                   setTodoFormOpen((prev) => !prev)
                   setActiveView('todo')
                 }}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/70 bg-white/86 px-4 text-sm font-semibold text-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition hover:bg-white"
               >
                 <PlusIcon />
                 新規ToDoを追加
@@ -6228,7 +6228,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleLogin}
-            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(90deg,#53b8ff_0%,#6e79ff_50%,#8b5cf6_100%)] px-5 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(99,102,241,0.28)] transition hover:scale-[1.01] hover:opacity-95"
           >
             <LoginIcon />
             Googleでログイン
@@ -6239,8 +6239,16 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_30%),linear-gradient(to_bottom,_#f8fafc,_#eef2f7)] text-slate-900">
-      <div className="flex min-h-screen">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_16%_18%,rgba(96,165,250,0.28),transparent_24%),radial-gradient(circle_at_78%_72%,rgba(251,191,36,0.18),transparent_28%),radial-gradient(circle_at_72%_24%,rgba(191,219,254,0.44),transparent_20%),linear-gradient(135deg,#eef6ff_0%,#f8fbff_40%,#fffaf4_100%)] text-slate-900">
+      <div className="relative flex min-h-screen">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden">
+          <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-blue-300/25 blur-3xl" />
+          <div className="absolute right-[-80px] top-36 h-80 w-80 rounded-full bg-amber-200/20 blur-3xl" />
+          <div className="absolute bottom-[-120px] left-[28%] h-72 w-72 rounded-full bg-indigo-300/15 blur-3xl" />
+          <div className="absolute left-[24%] top-[22%] hidden h-28 w-28 rounded-full border border-slate-300/30 bg-white/20 blur-sm lg:block" />
+          <div className="absolute right-[18%] top-[20%] hidden h-36 w-36 border border-slate-300/25 bg-white/10 lg:block" />
+          <div className="absolute bottom-[14%] left-[24%] hidden h-24 w-24 border border-slate-300/25 bg-white/10 lg:block" />
+        </div>
         <div className="hidden lg:block">
           <Sidebar />
         </div>
@@ -6265,7 +6273,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setMobileSidebarOpen(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 lg:hidden"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white/80 text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:bg-white lg:hidden"
                 >
                   <MenuIcon />
                 </button>
@@ -6344,7 +6352,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/70 bg-white/86 px-4 text-sm font-semibold text-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.08)] transition hover:bg-white"
                 >
                   <LogoutIcon />
                   <span className="hidden sm:inline">Logout</span>
