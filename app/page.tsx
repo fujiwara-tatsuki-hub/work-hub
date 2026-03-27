@@ -4237,6 +4237,41 @@ export default function Home() {
                 />
               </div>
 
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  表示設定
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(false)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      !newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    一般表示
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(true)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    管理者のみ
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  管理者のみを選ぶと、一般ユーザー画面には表示されません。
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={handleCreateParentGroup}
@@ -4267,7 +4302,7 @@ export default function Home() {
                   <option value="">選択してください</option>
                   {rootLinkGroups.map((group) => (
                     <option key={group.id} value={group.id}>
-                      {group.name}
+                      {group.name}{group.admin_only ? '（管理者のみ）' : ''}
                     </option>
                   ))}
                 </select>
@@ -4908,9 +4943,16 @@ export default function Home() {
                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
                           <LinkListIcon />
                         </span>
-                        <p className="truncate text-base font-semibold text-slate-900">
-                          {group.name}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-slate-900">
+                            {group.name}
+                          </p>
+                          {isAdmin && group.admin_only && (
+                            <p className="mt-1 text-xs font-medium text-slate-500">
+                              管理者のみ
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </button>
 
@@ -4996,9 +5038,16 @@ export default function Home() {
               <span>←</span>
               <span>戻る</span>
             </button>
-            <h2 className="mt-3 text-xl font-semibold text-slate-900">
-              {selectedGroup.name}
-            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {selectedGroup.name}
+              </h2>
+              {isAdmin && selectedGroup.admin_only && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  管理者のみ
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -5183,7 +5232,7 @@ export default function Home() {
                   <option value="">選択してください</option>
                   {rootLinkGroups.map((group) => (
                     <option key={group.id} value={group.id}>
-                      {group.name}
+                      {group.name}{group.admin_only ? '（管理者のみ）' : ''}
                     </option>
                   ))}
                 </select>
