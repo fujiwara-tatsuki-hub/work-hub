@@ -3233,12 +3233,11 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'relative flex h-full flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#07111f_0%,#0b1830_42%,#0a1425_100%)] text-white shadow-[0_24px_80px_rgba(2,8,23,0.45)]',
-        mobile ? 'w-72 rounded-r-[32px]' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
+        'flex h-full flex-col border-r border-slate-800/70 bg-slate-950 text-white',
+        mobile ? 'w-72' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
       )}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.22),_transparent_30%),radial-gradient(circle_at_20%_35%,_rgba(59,130,246,0.16),_transparent_22%)]" />
-      <div className="relative border-b border-white/10 px-4 py-4">
+      <div className="border-b border-white/10 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_55%)] px-4 py-4">
         <div className="flex items-center justify-between">
           <div
             className={cn(
@@ -3246,22 +3245,19 @@ export default function Home() {
               desktopSidebarCollapsed && !mobile && 'hidden'
             )}
           >
-            <p className="text-[13px] font-semibold tracking-[0.04em] text-white/90">
-              Work-Hub
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              WORK-HUB
             </p>
-            <h1 className="mt-1 truncate text-[28px] font-bold leading-none text-white">
+            <h1 className="truncate text-[15px] font-bold text-white">
               業務管理アプリ
             </h1>
-            <p className="mt-2 text-xs text-slate-300">
-              Aesthetic Operations Management
-            </p>
           </div>
 
           {!mobile && (
             <button
               type="button"
               onClick={() => setDesktopSidebarCollapsed((prev) => !prev)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 backdrop-blur transition hover:bg-white/10"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
             >
               {desktopSidebarCollapsed ? (
                 <ChevronRightIcon />
@@ -3275,7 +3271,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 backdrop-blur transition hover:bg-white/10"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10"
             >
               <CloseIcon />
             </button>
@@ -3283,17 +3279,17 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="relative border-b border-white/10 px-4 py-5">
+      <div className="border-b border-white/10 px-4 py-4">
         <div
           className={cn(
-            'rounded-[28px] border border-sky-300/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_18px_40px_rgba(37,99,235,0.18),0_0_0_1px_rgba(148,163,184,0.08)] backdrop-blur-xl',
+            'rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.35)]',
             desktopSidebarCollapsed &&
               !mobile &&
               'flex items-center justify-center p-3'
           )}
         >
           {desktopSidebarCollapsed && !mobile ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white shadow-[0_0_24px_rgba(96,165,250,0.35)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
               {(currentUserProfile?.name?.trim() || user?.email || 'U').slice(
                 0,
                 1
@@ -3301,21 +3297,21 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <p className="text-[30px] font-semibold leading-none text-white">
+              <p className="text-sm font-semibold text-white">
                 {currentUserProfile?.name?.trim() || 'ログイン中'}
               </p>
-              <p className="mt-2 truncate text-sm text-slate-200">
+              <p className="mt-1 truncate text-xs text-slate-300">
                 {user?.email || 'メール未取得'}
               </p>
-              <p className="mt-2 text-sm text-slate-400">
-                {isAdmin ? '役職：管理者' : '役職：パートナー'}
+              <p className="mt-1 text-xs text-slate-400">
+                権限：{isAdmin ? '管理者' : 'パートナー'}
               </p>
             </>
           )}
         </div>
       </div>
 
-      <nav className="relative flex-1 space-y-2 px-3 py-5">
+      <nav className="flex-1 space-y-2 px-3 py-5">
         {menuItems.map((item) => {
           const active = activeView === item.key
           return (
@@ -3327,26 +3323,26 @@ export default function Home() {
                 setMobileSidebarOpen(false)
               }}
               className={cn(
-                'flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-[15px] font-medium transition backdrop-blur',
+                'flex w-full items-center gap-3 rounded-[20px] px-3 py-3 text-left text-sm font-medium transition',
                 active
-                  ? 'border border-sky-300/20 bg-[linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_30px_rgba(96,165,250,0.14)]'
-                  : 'text-slate-200 hover:bg-white/8',
+                  ? 'bg-white/10 text-white shadow-sm ring-1 ring-inset ring-white/10'
+                  : 'text-slate-200 hover:bg-white/10',
                 desktopSidebarCollapsed && !mobile && 'justify-center px-0'
               )}
             >
-              <span className={cn(active ? 'text-white' : 'text-slate-300')}>{item.icon}</span>
+              <span>{item.icon}</span>
               {(!desktopSidebarCollapsed || mobile) && <span>{item.label}</span>}
             </button>
           )
         })}
       </nav>
 
-      <div className="relative mt-auto p-3">
+      <div className="border-t border-white/10 p-3">
         <button
           type="button"
           onClick={handleLogout}
           className={cn(
-            'flex w-full items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))] px-3 py-4 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_30px_rgba(15,23,42,0.3)] backdrop-blur transition hover:bg-white/15',
+            'flex w-full items-center justify-center gap-2 rounded-[20px] bg-white/10 px-3 py-3 text-sm font-semibold text-white transition hover:bg-white/15',
             desktopSidebarCollapsed && !mobile ? 'px-0' : ''
           )}
         >
@@ -3356,7 +3352,6 @@ export default function Home() {
       </div>
     </div>
   )
-
 
   const renderReceivedStatusSelect = (request: RequestItem) => {
     const currentStatus = request.status ?? '未確認'
@@ -4242,6 +4237,41 @@ export default function Home() {
                 />
               </div>
 
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  表示設定
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(false)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      !newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    一般表示
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(true)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    管理者のみ
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  管理者のみを選ぶと、一般ユーザー画面には表示されません。
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={handleCreateParentGroup}
@@ -4272,7 +4302,7 @@ export default function Home() {
                   <option value="">選択してください</option>
                   {rootLinkGroups.map((group) => (
                     <option key={group.id} value={group.id}>
-                      {group.name}
+                      {group.name}{group.admin_only ? '（管理者のみ）' : ''}
                     </option>
                   ))}
                 </select>
@@ -4413,24 +4443,24 @@ export default function Home() {
   }
 
   const renderDashboard = () => (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-5 lg:grid-cols-3">
       <a
         href={MY_CONNECT_URL}
         target="_blank"
         rel="noreferrer"
-        className="group rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)]"
+        className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(15,23,42,0.12)]"
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-[15px] font-semibold text-slate-800">
+            <p className="text-[15px] font-semibold text-blue-700">
               マイコネクト
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
               外部リンク
             </span>
           </div>
           <div className="mt-5 flex-1">
-            <h2 className="text-[22px] font-bold tracking-tight text-slate-900">
+            <h2 className="text-[22px] font-bold text-slate-900">
               マイコネクトを開く
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -4439,21 +4469,15 @@ export default function Home() {
               移動します。
             </p>
           </div>
-          <div className="mt-6">
-            <div className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)]">
-              <ExternalLinkIcon />
-              マイコネクトを開く
-            </div>
-          </div>
         </div>
       </a>
 
       <div
         className={cn(
-          'rounded-[32px] border bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl',
+          'rounded-[30px] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]',
           dashboardCounts.overduePendingCount > 0
-            ? 'border-red-200/80'
-            : 'border-white/60'
+            ? 'border border-red-200 bg-red-50/90'
+            : 'border border-slate-200 bg-white'
         )}
       >
         <div className="flex h-full flex-col">
@@ -4468,7 +4492,14 @@ export default function Home() {
             >
               期限切れ・要対応
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                dashboardCounts.overduePendingCount > 0
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-slate-100 text-slate-700'
+              )}
+            >
               優先確認
             </span>
           </div>
@@ -4477,10 +4508,10 @@ export default function Home() {
             <div>
               <p
                 className={cn(
-                  'text-7xl font-bold leading-none tracking-tight',
+                  'text-6xl font-bold leading-none tracking-tight',
                   dashboardCounts.overduePendingCount > 0
                     ? 'text-red-700'
-                    : 'text-slate-900'
+                    : 'text-slate-500'
                 )}
               >
                 {isAdmin ? dashboardCounts.combinedOverdueCount : dashboardCounts.overduePendingCount}
@@ -4491,26 +4522,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-5 flex gap-1.5">
-            {Array.from({ length: 16 }).map((_, index) => {
-              const activeCount = Math.min(
-                isAdmin ? dashboardCounts.combinedOverdueCount : dashboardCounts.overduePendingCount,
-                16
-              )
-              return (
-                <span
-                  key={index}
-                  className={cn(
-                    'h-3 flex-1 rounded-full shadow-sm',
-                    index < activeCount
-                      ? 'bg-[linear-gradient(180deg,#7cc4ff_0%,#4f8fff_100%)]'
-                      : 'bg-white/70 ring-1 ring-inset ring-slate-200/80'
-                  )}
-                />
-              )
-            })}
-          </div>
-
+          <div className="mt-5 h-2 rounded-full bg-slate-200/80" />
           <p
             className={cn(
               'mt-4 text-sm leading-6',
@@ -4524,18 +4536,18 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">
               未対応の依頼
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               受信
             </span>
           </div>
           <div className="mt-5 flex-1">
-            <p className="text-7xl font-bold leading-none tracking-tight text-slate-900">
+            <p className="text-6xl font-bold leading-none tracking-tight text-slate-500">
               {dashboardCounts.pendingCount}
             </p>
             <p className="mt-5 text-sm leading-6 text-slate-600">
@@ -4545,13 +4557,13 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">
               最近の送信依頼
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               最新5件
             </span>
           </div>
@@ -4567,11 +4579,11 @@ export default function Home() {
       </div>
 
       {!isAdmin && (
-        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between">
               <p className="text-[15px] font-semibold text-slate-800">操作</p>
-              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                 クイック
               </span>
             </div>
@@ -4585,7 +4597,7 @@ export default function Home() {
                   setCreateFormOpen((prev) => !prev)
                   setActiveView('dashboard')
                 }}
-                className="flex w-full items-center justify-between rounded-[22px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-left text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)] transition hover:opacity-95"
+                className="flex w-full items-center justify-between rounded-[22px] border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-slate-900 transition hover:bg-violet-100"
               >
                 <span>新規依頼を追加</span>
                 <PlusIcon />
@@ -4594,7 +4606,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setActiveView('received')}
-                className="flex w-full items-center justify-between rounded-[22px] border border-white/70 bg-white/80 px-4 py-3 text-left text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
+                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               >
                 <span>受信依頼を見る</span>
                 <ChevronRightIcon />
@@ -4603,7 +4615,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setActiveView('sent')}
-                className="flex w-full items-center justify-between rounded-[22px] border border-white/70 bg-white/80 px-4 py-3 text-left text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-white"
+                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               >
                 <span>送信依頼を見る</span>
                 <ChevronRightIcon />
@@ -4614,78 +4626,67 @@ export default function Home() {
       )}
 
       {isAdmin && (
-        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between">
               <p className="text-[15px] font-semibold text-slate-800">自分のToDo</p>
-              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
                 管理者のみ
               </span>
             </div>
 
-            <div className="mt-5 grid flex-1 grid-cols-2 gap-4">
-              <div className="rounded-[24px] border border-blue-100 bg-[linear-gradient(180deg,rgba(237,242,255,0.95),rgba(219,234,254,0.9))] p-4 text-center shadow-sm">
+            <div className="mt-5 grid flex-1 grid-cols-2 gap-3">
+              <div className="rounded-[22px] bg-red-50 p-4 text-center">
                 <p className="text-sm font-semibold text-red-700">未着手・進行中</p>
-                <p className="mt-3 text-5xl font-bold leading-none text-[#2d3f8f]">
+                <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                   {dashboardCounts.todoPendingCount}
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-orange-100 bg-[linear-gradient(180deg,rgba(255,243,232,0.95),rgba(255,228,213,0.9))] p-4 text-center shadow-sm">
+              <div className="rounded-[22px] bg-amber-50 p-4 text-center">
                 <p className="text-sm font-semibold text-amber-700">期限切れToDo</p>
-                <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
+                <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                   {dashboardCounts.todoOverdueCount}
                 </p>
               </div>
             </div>
 
-            <div className="mt-5 h-4 overflow-hidden rounded-full bg-white/75 ring-1 ring-inset ring-slate-200/70">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#5a8fff_0%,#4fc3a1_45%,#f59e0b_78%,#f0abfc_100%)]"
-                style={{
-                  width: `${Math.max(
-                    18,
-                    Math.min(
-                      100,
-                      (dashboardCounts.todoPendingCount + dashboardCounts.todoOverdueCount) * 16
-                    )
-                  )}%`,
-                }}
-              />
-            </div>
+            <p className="mt-5 text-sm leading-6 text-slate-600">
+              自分が担当または作成したToDoの件数です。
+            </p>
           </div>
         </div>
       )}
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">概要</p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               件数サマリ
             </span>
           </div>
 
-          <div className="mt-5 grid flex-1 grid-cols-3 gap-4">
-            <div className="rounded-[24px] border border-amber-100 bg-[linear-gradient(180deg,rgba(255,249,219,0.95),rgba(255,237,188,0.92))] p-4 text-center shadow-sm">
+          <div className="mt-5 grid flex-1 grid-cols-3 gap-3">
+            <div className="rounded-[22px] bg-amber-50 p-4 text-center">
               <p className="text-sm font-semibold text-amber-700">受信</p>
-              <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.receivedTotal}
               </p>
               <BarChartMini tone="amber" />
             </div>
 
-            <div className="rounded-[24px] border border-blue-100 bg-[linear-gradient(180deg,rgba(236,244,255,0.95),rgba(219,234,254,0.92))] p-4 text-center shadow-sm">
+            <div className="rounded-[22px] bg-blue-50 p-4 text-center">
               <p className="text-sm font-semibold text-blue-700">送信</p>
-              <p className="mt-3 text-5xl font-bold leading-none text-[#2d4bb3]">
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.sentTotal}
               </p>
               <BarChartMini tone="blue" />
             </div>
 
-            <div className="rounded-[24px] border border-emerald-100 bg-[linear-gradient(180deg,rgba(235,255,245,0.95),rgba(209,250,229,0.92))] p-4 text-center shadow-sm">
+            <div className="rounded-[22px] bg-emerald-50 p-4 text-center">
               <p className="text-sm font-semibold text-emerald-700">完了</p>
-              <p className="mt-3 text-5xl font-bold leading-none text-[#157347]">
+              <p className="mt-3 text-4xl font-bold leading-none text-slate-900">
                 {dashboardCounts.completedTotal}
               </p>
               <BarChartMini tone="green" />
@@ -4695,7 +4696,6 @@ export default function Home() {
       </div>
     </div>
   )
-
 
   const renderReceived = () => (
     <div className="space-y-4">
@@ -4943,9 +4943,16 @@ export default function Home() {
                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-600">
                           <LinkListIcon />
                         </span>
-                        <p className="truncate text-base font-semibold text-slate-900">
-                          {group.name}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-semibold text-slate-900">
+                            {group.name}
+                          </p>
+                          {isAdmin && group.admin_only && (
+                            <p className="mt-1 text-xs font-medium text-slate-500">
+                              管理者のみ
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </button>
 
@@ -5031,9 +5038,16 @@ export default function Home() {
               <span>←</span>
               <span>戻る</span>
             </button>
-            <h2 className="mt-3 text-xl font-semibold text-slate-900">
-              {selectedGroup.name}
-            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {selectedGroup.name}
+              </h2>
+              {isAdmin && selectedGroup.admin_only && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  管理者のみ
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
@@ -5218,7 +5232,7 @@ export default function Home() {
                   <option value="">選択してください</option>
                   {rootLinkGroups.map((group) => (
                     <option key={group.id} value={group.id}>
-                      {group.name}
+                      {group.name}{group.admin_only ? '（管理者のみ）' : ''}
                     </option>
                   ))}
                 </select>
@@ -6189,8 +6203,8 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.18),_transparent_24%),linear-gradient(135deg,_#edf5ff_0%,_#f8fbff_42%,_#fffaf5_100%)] px-4">
-        <div className="rounded-[32px] border border-white/60 bg-white/70 px-6 py-5 text-sm font-medium text-slate-600 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="rounded-3xl bg-white px-6 py-5 text-sm font-medium text-slate-600 shadow-sm">
           読み込み中...
         </div>
       </main>
@@ -6199,8 +6213,8 @@ export default function Home() {
 
   if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.18),_transparent_24%),linear-gradient(135deg,_#edf5ff_0%,_#f8fbff_42%,_#fffaf5_100%)] px-4">
-        <div className="w-full max-w-md rounded-[36px] border border-white/60 bg-white/70 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-md rounded-[32px] border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-400">
             Work-Hub
           </p>
@@ -6214,7 +6228,7 @@ export default function Home() {
           <button
             type="button"
             onClick={handleLogin}
-            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-5 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)] transition hover:opacity-95"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             <LoginIcon />
             Googleでログイン
@@ -6245,7 +6259,7 @@ export default function Home() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-white/50 bg-white/55 backdrop-blur-xl">
+          <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur">
             <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
                 <button
@@ -6339,7 +6353,7 @@ export default function Home() {
             </div>
           </header>
 
-          <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex-1 px-4 py-5 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-7xl space-y-5">
               {isProxyMode && (
                 <div className="flex items-center justify-between rounded-[24px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
