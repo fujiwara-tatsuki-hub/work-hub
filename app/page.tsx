@@ -4534,14 +4534,38 @@ export default function Home() {
               受信
             </span>
           </div>
-          <div className="mt-5 flex-1">
-            <p className="text-7xl font-bold leading-none tracking-tight text-slate-900">
-              {dashboardCounts.pendingCount}
-            </p>
-            <p className="mt-5 text-sm leading-6 text-slate-600">
-              まだ完了していない受信依頼の件です。
-            </p>
+
+          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
+            <div>
+              <p className="text-7xl font-bold leading-none tracking-tight text-slate-900">
+                {dashboardCounts.pendingCount}
+              </p>
+            </div>
+            <div className="text-right text-sm text-slate-500">
+              <p>0 out of total</p>
+            </div>
           </div>
+
+          <div className="mt-5 flex gap-1.5">
+            {Array.from({ length: 16 }).map((_, index) => {
+              const activeCount = Math.min(dashboardCounts.pendingCount, 16)
+              return (
+                <span
+                  key={index}
+                  className={cn(
+                    'h-3 flex-1 rounded-full shadow-sm',
+                    index < activeCount
+                      ? 'bg-[linear-gradient(180deg,#7cc4ff_0%,#4f8fff_100%)]'
+                      : 'bg-white/70 ring-1 ring-inset ring-slate-200/80'
+                  )}
+                />
+              )
+            })}
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            まだ完了していない受信依頼の件です。
+          </p>
         </div>
       </div>
 
@@ -4624,16 +4648,16 @@ export default function Home() {
             </div>
 
             <div className="mt-5 grid flex-1 grid-cols-2 gap-4">
-              <div className="rounded-[24px] border border-blue-100 bg-[linear-gradient(180deg,rgba(237,242,255,0.95),rgba(219,234,254,0.9))] p-4 text-center shadow-sm">
-                <p className="text-sm font-semibold text-red-700">未着手・進行中</p>
-                <p className="mt-3 text-5xl font-bold leading-none text-[#2d3f8f]">
+              <div className="rounded-[24px] border border-amber-100 bg-[linear-gradient(180deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9))] p-4 text-center shadow-sm">
+                <p className="text-sm font-semibold text-amber-700">未着手・進行中</p>
+                <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
                   {dashboardCounts.todoPendingCount}
                 </p>
               </div>
 
-              <div className="rounded-[24px] border border-orange-100 bg-[linear-gradient(180deg,rgba(255,243,232,0.95),rgba(255,228,213,0.9))] p-4 text-center shadow-sm">
-                <p className="text-sm font-semibold text-amber-700">期限切れToDo</p>
-                <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
+              <div className="rounded-[24px] border border-red-100 bg-[linear-gradient(180deg,rgba(254,242,242,0.95),rgba(254,226,226,0.9))] p-4 text-center shadow-sm">
+                <p className="text-sm font-semibold text-red-700">期限切れToDo</p>
+                <p className="mt-3 text-5xl font-bold leading-none text-[#b42318]">
                   {dashboardCounts.todoOverdueCount}
                 </p>
               </div>
