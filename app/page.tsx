@@ -4242,6 +4242,41 @@ export default function Home() {
                 />
               </div>
 
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  表示設定
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(false)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      !newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    一般表示
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewParentGroupAdminOnly(true)}
+                    className={cn(
+                      'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                      newParentGroupAdminOnly
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    管理者のみ
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  管理者のみを選ぶと、一般ユーザー画面には表示されません。
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={handleCreateParentGroup}
