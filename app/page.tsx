@@ -875,6 +875,7 @@ export default function Home() {
   const [templates, setTemplates] = useState<TemplateItem[]>([])
   const [userSettings, setUserSettings] = useState<UserSettingsItem | null>(null)
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([])
+  const [activityLogFetchLimit, setActivityLogFetchLimit] = useState(20)
   const [activityLogUserFilter, setActivityLogUserFilter] = useState('all')
   const [activityLogActionFilter, setActivityLogActionFilter] = useState('all')
   const [activityLogDateFrom, setActivityLogDateFrom] = useState('')
@@ -1099,7 +1100,8 @@ export default function Home() {
   }, [currentUserId])
 
   useEffect(() => {
-    fetchActivityLogs()
+    setActivityLogFetchLimit(20)
+    void fetchActivityLogs(20)
   }, [currentUserId, isAdmin])
 
   const handleLogin = async () => {
@@ -1300,7 +1302,7 @@ export default function Home() {
     }
   }
 
-  const fetchActivityLogs = async () => {
+  const fetchActivityLogs = async (limit = 20) => {
     if (!currentUserId || !isAdmin) {
       setActivityLogs([])
       return
@@ -1310,7 +1312,7 @@ export default function Home() {
       .from('activity_logs')
       .select('id, user_id, user_name, action, target_type, target_id, detail, created_at')
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(limit)
 
     if (error) {
       console.error('activity_logs取得エラー:', error)
@@ -1318,6 +1320,7 @@ export default function Home() {
     }
 
     setActivityLogs((data as ActivityLogItem[]) ?? [])
+    setActivityLogFetchLimit(limit)
   }
 
   const refreshLinksData = async () => {
@@ -6285,7 +6288,7 @@ export default function Home() {
                   </div>
                   <button
                     type="button"
-                    onClick={fetchActivityLogs}
+                    onClick={() => void fetchActivityLogs(activityLogFetchLimit)}
                     className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     更新
@@ -6348,8 +6351,9 @@ export default function Home() {
               </div>
 
               {filteredActivityLogs.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <div className="min-w-[880px]">
+                <>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[880px]">
                     <div className="grid grid-cols-[180px_170px_170px_120px_minmax(220px,1fr)] gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-500">
                       <p>実行日時</p>
                       <p>実行者</p>
@@ -6383,6 +6387,19 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                {filteredActivityLogs.length >= activityLogFetchLimit ? (
+                  <div className="border-t border-slate-200 px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => void fetchActivityLogs(activityLogFetchLimit + 20)}
+                      className="inline-flex h-11 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                      さらに読み込む
+                    </button>
+                  </div>
+                ) : null}
+                </>
               ) : (
                 <div className="px-5 py-8 text-center text-sm text-slate-500">
                   条件に一致するログがありません。
