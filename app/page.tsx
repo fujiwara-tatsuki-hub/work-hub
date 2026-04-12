@@ -904,6 +904,8 @@ export default function Home() {
   const [todoFormOpen, setTodoFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkCreateOpen, setLinkCreateOpen] = useState(false)
+  const [linkEditMode, setLinkEditMode] = useState(false)
+  const [templateEditMode, setTemplateEditMode] = useState(false)
   const [activeView, setActiveView] = useState<ViewKey>('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] =
@@ -1006,12 +1008,38 @@ export default function Home() {
   }, [activeView])
 
   useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    const originalOverflow = document.body.style.overflow
+
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = originalOverflow || ''
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow || ''
+    }
+  }, [mobileSidebarOpen])
+
+  useEffect(() => {
     if (activeView !== 'links') {
       setSelectedLinkGroupId(null)
+      setLinkEditMode(false)
+      if (linkCreateOpen) {
+        setLinkCreateOpen(false)
+        resetLinkCreateForm()
+      }
     }
 
     if (activeView !== 'templates') {
       setSelectedTemplateGroupId(null)
+      setTemplateEditMode(false)
+      if (linkCreateOpen) {
+        setLinkCreateOpen(false)
+        resetTemplateCreateForm()
+      }
     }
   }, [activeView])
 
@@ -1634,6 +1662,29 @@ export default function Home() {
       combinedOverdueCount,
     }
   }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos, isAdmin, isOwnTodo])
+
+  const sidebarReceivedPendingCount = useMemo(() => {
+    if (!currentUserId) return 0
+
+    return requests.filter((item) => {
+      const currentStatus = item.status ?? '未確認'
+      return item.recipient_id === currentUserId && currentStatus !== '完了'
+    }).length
+  }, [requests, currentUserId])
+
+  const sidebarTodoOverdueCount = useMemo(() => {
+    if (!isAdmin || !currentUserId) return 0
+
+    return todos.filter((item) => {
+      const currentStatus = item.status ?? '未着手'
+      return (
+        isOwnTodo(item) &&
+        !item.is_completed &&
+        currentStatus !== '完了' &&
+        isOverdue(item.deadline)
+      )
+    }).length
+  }, [todos, isAdmin, currentUserId, isOwnTodo])
 
   const filteredLinks = useMemo(() => {
     const keyword = linkSearch.trim().toLowerCase()
@@ -3234,7 +3285,7 @@ export default function Home() {
     <div
       className={cn(
         'relative flex h-full flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#07111f_0%,#0b1830_42%,#0a1425_100%)] text-white shadow-[0_24px_80px_rgba(2,8,23,0.45)]',
-        mobile ? 'w-72 rounded-r-[32px]' : desktopSidebarCollapsed ? 'w-[88px]' : 'w-72'
+        mobile ? 'h-full w-72 rounded-r-[32px]' : desktopSidebarCollapsed ? 'h-screen w-[88px]' : 'h-screen w-72'
       )}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.22),_transparent_30%),radial-gradient(circle_at_20%_35%,_rgba(59,130,246,0.16),_transparent_22%)]" />
@@ -3315,9 +3366,17 @@ export default function Home() {
         </div>
       </div>
 
-      <nav className="relative flex-1 space-y-2 px-3 py-5">
+      <nav className="relative flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-5">
         {menuItems.map((item) => {
           const active = activeView === item.key
+          const badgeCount =
+            item.key === 'todo'
+              ? sidebarTodoOverdueCount
+              : item.key === 'received'
+              ? sidebarReceivedPendingCount
+              : 0
+          const showLabel = !desktopSidebarCollapsed || mobile
+
           return (
             <button
               key={item.key}
@@ -3327,21 +3386,37 @@ export default function Home() {
                 setMobileSidebarOpen(false)
               }}
               className={cn(
-                'flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-[15px] font-medium transition backdrop-blur',
+                'relative flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-[15px] font-medium transition backdrop-blur',
                 active
                   ? 'border border-sky-300/20 bg-[linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_30px_rgba(96,165,250,0.14)]'
                   : 'text-slate-200 hover:bg-white/8',
                 desktopSidebarCollapsed && !mobile && 'justify-center px-0'
               )}
             >
-              <span className={cn(active ? 'text-white' : 'text-slate-300')}>{item.icon}</span>
-              {(!desktopSidebarCollapsed || mobile) && <span>{item.label}</span>}
+              <span className={cn('relative inline-flex', active ? 'text-white' : 'text-slate-300')}>
+                {item.icon}
+                {!showLabel && badgeCount > 0 && (
+                  <span className="absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+              </span>
+              {showLabel && (
+                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <span className="truncate">{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           )
         })}
       </nav>
 
-      <div className="relative mt-auto p-3">
+      <div className="relative mt-auto border-t border-white/10 p-3">
         <button
           type="button"
           onClick={handleLogout}
@@ -4914,7 +4989,7 @@ export default function Home() {
         {link.title}
       </a>
 
-      {isAdmin && (
+      {isAdmin && linkEditMode && (
         <div className="flex shrink-0 items-center gap-2">
           {renderMoveButtons({
             onMoveUp: () => handleMoveLink(link, 'up'),
@@ -4968,17 +5043,32 @@ export default function Home() {
               </div>
 
               {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLinkCreateOpen((prev) => !prev)
-                    if (linkCreateOpen) resetLinkCreateForm()
-                  }}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
-                  {linkCreateOpen ? '閉じる' : '追加'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLinkEditMode((prev) => !prev)}
+                    className={cn(
+                      'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-semibold transition',
+                      linkEditMode
+                        ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    <EditIcon />
+                    {linkEditMode ? '編集終了' : '編集'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLinkCreateOpen((prev) => !prev)
+                      if (linkCreateOpen) resetLinkCreateForm()
+                    }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                    {linkCreateOpen ? '閉じる' : '追加'}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -5008,7 +5098,7 @@ export default function Home() {
                       </div>
                     </button>
 
-                    {isAdmin && (
+                    {isAdmin && linkEditMode && (
                       <div className="flex shrink-0 items-center gap-2">
                         {renderMoveButtons({
                           onMoveUp: () => handleMoveRootLinkGroup(group, 'up'),
@@ -5112,31 +5202,59 @@ export default function Home() {
 
             {isAdmin && (
               <div className="flex items-center gap-2">
-                {renderMoveButtons({
-                  onMoveUp: () => handleMoveRootLinkGroup(selectedGroup, 'up'),
-                  onMoveDown: () => handleMoveRootLinkGroup(selectedGroup, 'down'),
-                  disableUp:
-                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
-                  disableDown:
-                    rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) ===
-                    rootLinkGroups.length - 1,
-                })}
                 <button
                   type="button"
-                  onClick={() => handleEditLinkGroup(selectedGroup)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                  title="編集"
+                  onClick={() => setLinkEditMode((prev) => !prev)}
+                  className={cn(
+                    'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition',
+                    linkEditMode
+                      ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  )}
                 >
                   <EditIcon />
+                  {linkEditMode ? '編集終了' : '編集'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDeleteLinkGroup(selectedGroup)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
-                  title="削除"
+                  onClick={() => {
+                    setLinkCreateOpen((prev) => !prev)
+                    if (linkCreateOpen) resetLinkCreateForm()
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
-                  <TrashIcon />
+                  {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                  {linkCreateOpen ? '閉じる' : '追加'}
                 </button>
+                {linkEditMode && (
+                  <>
+                    {renderMoveButtons({
+                      onMoveUp: () => handleMoveRootLinkGroup(selectedGroup, 'up'),
+                      onMoveDown: () => handleMoveRootLinkGroup(selectedGroup, 'down'),
+                      disableUp:
+                        rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
+                      disableDown:
+                        rootLinkGroups.findIndex((item) => item.id === selectedGroup.id) ===
+                        rootLinkGroups.length - 1,
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => handleEditLinkGroup(selectedGroup)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                      title="編集"
+                    >
+                      <EditIcon />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLinkGroup(selectedGroup)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50"
+                      title="削除"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -5169,7 +5287,7 @@ export default function Home() {
                   {child.name}
                 </p>
 
-                {isAdmin && (
+                {isAdmin && linkEditMode && (
                   <div className="flex shrink-0 items-center gap-2">
                     {renderMoveButtons({
                       onMoveUp: () => handleMoveChildLinkGroup(child, 'up'),
@@ -5507,7 +5625,7 @@ export default function Home() {
             コピー
           </button>
 
-          {isAdmin && (
+          {isAdmin && templateEditMode && (
             <>
               {renderMoveButtons({
                 onMoveUp: () => handleMoveTemplate(item, 'up'),
@@ -5566,17 +5684,32 @@ export default function Home() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setLinkCreateOpen((prev) => !prev)
-                  if (linkCreateOpen) resetTemplateCreateForm()
-                }}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
-                {linkCreateOpen ? '閉じる' : '追加'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTemplateEditMode((prev) => !prev)}
+                  className={cn(
+                    'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-semibold transition',
+                    templateEditMode
+                      ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  )}
+                >
+                  <EditIcon />
+                  {templateEditMode ? '編集終了' : '編集'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkCreateOpen((prev) => !prev)
+                    if (linkCreateOpen) resetTemplateCreateForm()
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                  {linkCreateOpen ? '閉じる' : '追加'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -5596,16 +5729,18 @@ export default function Home() {
                       </div>
                     </button>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      {renderMoveButtons({
+                    {templateEditMode && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {renderMoveButtons({
                         onMoveUp: () => handleMoveTemplateRootGroup(group, 'up'),
                         onMoveDown: () => handleMoveTemplateRootGroup(group, 'down'),
                         disableUp: index === 0,
                         disableDown: index === visibleTemplateRootGroups.length - 1,
                       })}
                       <button type="button" onClick={() => handleEditTemplateGroup(group)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
-                      <button type="button" onClick={() => handleDeleteTemplateGroup(group)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
-                    </div>
+                        <button type="button" onClick={() => handleDeleteTemplateGroup(group)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -5654,14 +5789,42 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-              {renderMoveButtons({
-                onMoveUp: () => handleMoveTemplateRootGroup(selectedGroup, 'up'),
-                onMoveDown: () => handleMoveTemplateRootGroup(selectedGroup, 'down'),
-                disableUp: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
-                disableDown: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === templateRootGroups.length - 1,
-              })}
-              <button type="button" onClick={() => handleEditTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
-              <button type="button" onClick={() => handleDeleteTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+              <button
+                type="button"
+                onClick={() => setTemplateEditMode((prev) => !prev)}
+                className={cn(
+                  'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition',
+                  templateEditMode
+                    ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                )}
+              >
+                <EditIcon />
+                {templateEditMode ? '編集終了' : '編集'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkCreateOpen((prev) => !prev)
+                  if (linkCreateOpen) resetTemplateCreateForm()
+                }}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                {linkCreateOpen ? <CloseIcon /> : <PlusIcon />}
+                {linkCreateOpen ? '閉じる' : '追加'}
+              </button>
+              {templateEditMode && (
+                <>
+                  {renderMoveButtons({
+                    onMoveUp: () => handleMoveTemplateRootGroup(selectedGroup, 'up'),
+                    onMoveDown: () => handleMoveTemplateRootGroup(selectedGroup, 'down'),
+                    disableUp: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === 0,
+                    disableDown: templateRootGroups.findIndex((item) => item.id === selectedGroup.id) === templateRootGroups.length - 1,
+                  })}
+                  <button type="button" onClick={() => handleEditTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
+                  <button type="button" onClick={() => handleDeleteTemplateGroup(selectedGroup)} className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -5682,16 +5845,18 @@ export default function Home() {
             <div key={child.id} className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="truncate text-base font-semibold text-slate-900">{child.name}</p>
-                <div className="flex shrink-0 items-center gap-2">
-                  {renderMoveButtons({
-                    onMoveUp: () => handleMoveTemplateChildGroup(child, 'up'),
-                    onMoveDown: () => handleMoveTemplateChildGroup(child, 'down'),
-                    disableUp: childIndex === 0,
-                    disableDown: childIndex === selectedChildGroups.length - 1,
-                  })}
-                  <button type="button" onClick={() => handleEditTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
-                  <button type="button" onClick={() => handleDeleteTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
-                </div>
+                {templateEditMode && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {renderMoveButtons({
+                      onMoveUp: () => handleMoveTemplateChildGroup(child, 'up'),
+                      onMoveDown: () => handleMoveTemplateChildGroup(child, 'down'),
+                      disableUp: childIndex === 0,
+                      disableDown: childIndex === selectedChildGroups.length - 1,
+                    })}
+                    <button type="button" onClick={() => handleEditTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" title="編集"><EditIcon /></button>
+                    <button type="button" onClick={() => handleDeleteTemplateGroup(child)} className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50" title="削除"><TrashIcon /></button>
+                  </div>
+                )}
               </div>
               <div className="space-y-3">
                 {childTemplates.map((item, index) => renderTemplateCard(item, { disableMoveUp: index === 0, disableMoveDown: index === childTemplates.length - 1 }))}
@@ -6286,7 +6451,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_30%),linear-gradient(to_bottom,_#f8fafc,_#eef2f7)] text-slate-900">
       <div className="flex min-h-screen">
-        <div className="hidden lg:block">
+        <div className="hidden h-screen lg:sticky lg:top-0 lg:block">
           <Sidebar />
         </div>
 
@@ -6297,7 +6462,7 @@ export default function Home() {
               onClick={() => setMobileSidebarOpen(false)}
               className="absolute inset-0 bg-slate-950/40"
             />
-            <div className="absolute left-0 top-0 h-full">
+            <div className="absolute left-0 top-0 h-full max-w-full overflow-hidden">
               <Sidebar mobile />
             </div>
           </div>
