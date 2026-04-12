@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
+import { sortActiveRequests, sortActiveTodos } from '@/lib/workhub/sort'
 
 type RequestItem = {
   id: string
@@ -320,32 +321,6 @@ function getTodoCardStyle(todo: TodoItem) {
   }
 }
 
-function sortActiveTodos(todos: TodoItem[]) {
-  const rank = (todo: TodoItem) => {
-    const status = todo.status ?? STATUS.TODO.NOT_STARTED
-    if (status === STATUS.TODO.NOT_STARTED && isOverdue(todo.deadline)) return 0
-    if (status === STATUS.TODO.NOT_STARTED) return 1
-    if (status === STATUS.TODO.IN_PROGRESS) return 2
-    return 3
-  }
-
-  return [...todos].sort((a, b) => {
-    const rankDiff = rank(a) - rank(b)
-    if (rankDiff !== 0) return rankDiff
-
-    const deadlineA = a.deadline
-      ? new Date(a.deadline).getTime()
-      : Number.MAX_SAFE_INTEGER
-    const deadlineB = b.deadline
-      ? new Date(b.deadline).getTime()
-      : Number.MAX_SAFE_INTEGER
-    if (deadlineA !== deadlineB) return deadlineA - deadlineB
-
-    return (
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-  })
-}
 
 function getRequestCardStyle(request: RequestItem) {
   const status = request.status ?? STATUS.REQUEST.NEW
@@ -382,32 +357,6 @@ function getRequestCardStyle(request: RequestItem) {
   }
 }
 
-function sortActiveRequests(requests: RequestItem[]) {
-  const rank = (request: RequestItem) => {
-    const status = request.status ?? STATUS.REQUEST.NEW
-    if (status === STATUS.REQUEST.NEW && isOverdue(request.deadline)) return 0
-    if (status === STATUS.REQUEST.NEW) return 1
-    if (status === STATUS.REQUEST.DOING) return 2
-    return 3
-  }
-
-  return [...requests].sort((a, b) => {
-    const rankDiff = rank(a) - rank(b)
-    if (rankDiff !== 0) return rankDiff
-
-    const deadlineA = a.deadline
-      ? new Date(a.deadline).getTime()
-      : Number.MAX_SAFE_INTEGER
-    const deadlineB = b.deadline
-      ? new Date(b.deadline).getTime()
-      : Number.MAX_SAFE_INTEGER
-    if (deadlineA !== deadlineB) return deadlineA - deadlineB
-
-    return (
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-  })
-}
 
 function getUserLabel(user: UserItem | undefined) {
   if (!user) return '未設定ユーザー'
