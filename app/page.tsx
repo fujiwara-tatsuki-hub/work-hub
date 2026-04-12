@@ -1101,8 +1101,16 @@ export default function Home() {
 
   useEffect(() => {
     setActivityLogFetchLimit(20)
-    void fetchActivityLogs(20)
-  }, [currentUserId, isAdmin])
+
+    if (!currentUserId || !isAdmin) {
+      setActivityLogs([])
+      return
+    }
+
+    if (activeView === 'settings') {
+      void fetchActivityLogs(20)
+    }
+  }, [currentUserId, isAdmin, activeView])
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -1357,11 +1365,25 @@ export default function Home() {
     fetchUsers()
     fetchRequests()
     fetchTodos()
-    fetchLinkGroups()
-    fetchLinks()
-    fetchTemplateGroups()
-    fetchTemplates()
   }, [currentUserId, effectiveUserId, isAdmin])
+
+  useEffect(() => {
+    if (!currentUserId) return
+    if (activeView !== 'links') return
+    if (linkGroups.length > 0 || links.length > 0) return
+
+    void fetchLinkGroups()
+    void fetchLinks()
+  }, [currentUserId, activeView, linkGroups.length, links.length])
+
+  useEffect(() => {
+    if (!currentUserId || !isAdmin) return
+    if (activeView !== 'templates') return
+    if (templateGroups.length > 0 || templates.length > 0) return
+
+    void fetchTemplateGroups()
+    void fetchTemplates()
+  }, [currentUserId, isAdmin, activeView, templateGroups.length, templates.length])
 
   useEffect(() => {
     if (!effectiveUserId) return
