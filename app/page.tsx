@@ -1310,7 +1310,7 @@ export default function Home() {
       .from('activity_logs')
       .select('id, user_id, user_name, action, target_type, target_id, detail, created_at')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(20)
 
     if (error) {
       console.error('activity_logs取得エラー:', error)
@@ -6281,7 +6281,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-base font-semibold text-slate-900">アクティビティログ確認</p>
-                    <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します</p>
+                    <p className="mt-1 text-sm text-slate-500">誰が・何を・いつ実行したかを確認します（最新20件）</p>
                   </div>
                   <button
                     type="button"
@@ -6358,7 +6358,7 @@ export default function Home() {
                       <p>詳細</p>
                     </div>
 
-                    <div className="divide-y divide-slate-200">
+                    <div className="max-h-[520px] overflow-y-auto divide-y divide-slate-200">
                       {filteredActivityLogs.map((log) => (
                         <div
                           key={log.id}
