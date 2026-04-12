@@ -149,6 +149,22 @@ const PRIORITY = {
   HIGH: '高',
 } as const
 
+
+type RequestStatusValue =
+  | typeof STATUS.REQUEST.NEW
+  | typeof STATUS.REQUEST.DOING
+  | typeof STATUS.REQUEST.DONE
+
+type TodoStatusValue =
+  | typeof STATUS.TODO.NOT_STARTED
+  | typeof STATUS.TODO.IN_PROGRESS
+  | typeof STATUS.TODO.DONE
+
+type PriorityValue =
+  | typeof PRIORITY.LOW
+  | typeof PRIORITY.MEDIUM
+  | typeof PRIORITY.HIGH
+
 const STATUS_OPTIONS = [STATUS.REQUEST.NEW, STATUS.REQUEST.DOING, STATUS.REQUEST.DONE]
 const PRIORITY_OPTIONS = [PRIORITY.LOW, PRIORITY.MEDIUM, PRIORITY.HIGH]
 const TODO_STATUS_OPTIONS = [STATUS.TODO.NOT_STARTED, STATUS.TODO.IN_PROGRESS, STATUS.TODO.DONE]
@@ -937,14 +953,14 @@ export default function Home() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [recipientIds, setRecipientIds] = useState<string[]>([])
-  const [status, setStatus] = useState(STATUS.REQUEST.NEW)
-  const [priority, setPriority] = useState(PRIORITY.MEDIUM)
+  const [status, setStatus] = useState<RequestStatusValue>(STATUS.REQUEST.NEW)
+  const [priority, setPriority] = useState<PriorityValue>(PRIORITY.MEDIUM)
   const [deadline, setDeadline] = useState('')
 
   const [todoTitle, setTodoTitle] = useState('')
   const [todoContent, setTodoContent] = useState('')
-  const [todoStatus, setTodoStatus] = useState(STATUS.TODO.NOT_STARTED)
-  const [todoPriority, setTodoPriority] = useState(PRIORITY.MEDIUM)
+  const [todoStatus, setTodoStatus] = useState<TodoStatusValue>(STATUS.TODO.NOT_STARTED)
+  const [todoPriority, setTodoPriority] = useState<PriorityValue>(PRIORITY.MEDIUM)
   const [todoDeadline, setTodoDeadline] = useState('')
 
   const [newParentGroupName, setNewParentGroupName] = useState('')
@@ -2084,8 +2100,8 @@ export default function Home() {
     setEditingTodoId(todo.id)
     setTodoTitle(todo.title)
     setTodoContent(todo.content ?? '')
-    setTodoStatus(todo.status ?? STATUS.TODO.NOT_STARTED)
-    setTodoPriority(todo.priority ?? PRIORITY.MEDIUM)
+    setTodoStatus((todo.status as TodoStatusValue | null) ?? STATUS.TODO.NOT_STARTED)
+    setTodoPriority((todo.priority as PriorityValue | null) ?? PRIORITY.MEDIUM)
     setTodoDeadline(todo.deadline ?? '')
     setTodoFormOpen(true)
     setCreateFormOpen(false)
@@ -2627,8 +2643,8 @@ export default function Home() {
     setTitle(request.title)
     setContent(request.content)
     setRecipientIds(request.recipient_id ? [request.recipient_id] : [])
-    setStatus(request.status ?? STATUS.REQUEST.NEW)
-    setPriority(request.priority ?? PRIORITY.MEDIUM)
+    setStatus((request.status as RequestStatusValue | null) ?? STATUS.REQUEST.NEW)
+    setPriority((request.priority as PriorityValue | null) ?? PRIORITY.MEDIUM)
     setDeadline(request.deadline ?? '')
     setCreateFormOpen(true)
     setTodoFormOpen(false)
@@ -3864,7 +3880,7 @@ export default function Home() {
             </label>
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => setStatus(event.target.value as RequestStatusValue)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
             >
               {STATUS_OPTIONS.filter((item) => item !== STATUS.REQUEST.DONE).map((item) => (
@@ -3881,7 +3897,7 @@ export default function Home() {
             </label>
             <select
               value={priority}
-              onChange={(event) => setPriority(event.target.value)}
+              onChange={(event) => setPriority(event.target.value as PriorityValue)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
             >
               {PRIORITY_OPTIONS.map((item) => (
@@ -4029,7 +4045,7 @@ export default function Home() {
             </label>
             <select
               value={todoStatus}
-              onChange={(event) => setTodoStatus(event.target.value)}
+              onChange={(event) => setTodoStatus(event.target.value as TodoStatusValue)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
             >
               {TODO_STATUS_OPTIONS.map((item) => (
@@ -4046,7 +4062,7 @@ export default function Home() {
             </label>
             <select
               value={todoPriority}
-              onChange={(event) => setTodoPriority(event.target.value)}
+              onChange={(event) => setTodoPriority(event.target.value as PriorityValue)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
             >
               {PRIORITY_OPTIONS.map((item) => (
