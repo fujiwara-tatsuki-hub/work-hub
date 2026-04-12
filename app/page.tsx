@@ -130,9 +130,28 @@ type SentDisplayItem =
       requests: RequestItem[]
     }
 
-const STATUS_OPTIONS = ['未確認', '対応中', '完了']
-const PRIORITY_OPTIONS = ['低', '中', '高']
-const TODO_STATUS_OPTIONS = ['未着手', '進行中', '完了']
+const STATUS = {
+  REQUEST: {
+    NEW: '未確認',
+    DOING: '対応中',
+    DONE: '完了',
+  },
+  TODO: {
+    NOT_STARTED: '未着手',
+    IN_PROGRESS: '進行中',
+    DONE: '完了',
+  },
+} as const
+
+const PRIORITY = {
+  LOW: '低',
+  MEDIUM: '中',
+  HIGH: '高',
+} as const
+
+const STATUS_OPTIONS = [STATUS.REQUEST.NEW, STATUS.REQUEST.DOING, STATUS.REQUEST.DONE]
+const PRIORITY_OPTIONS = [PRIORITY.LOW, PRIORITY.MEDIUM, PRIORITY.HIGH]
+const TODO_STATUS_OPTIONS = [STATUS.TODO.NOT_STARTED, STATUS.TODO.IN_PROGRESS, STATUS.TODO.DONE]
 
 const MY_CONNECT_URL =
   'https://script.google.com/a/macros/chronusinc.jp/s/AKfycbzSKDnhFKHWFQZwlUVpi5yrXHuH2GCc4gUny2fUslMkrABG0vAQrTCHzyHBre1fJJT-dg/exec'
@@ -144,16 +163,16 @@ const STATUS_META: Record<
     className: string
   }
 > = {
-  未確認: {
+  [STATUS.REQUEST.NEW]: {
     label: '未完了',
     className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
   },
-  対応中: {
+  [STATUS.REQUEST.DOING]: {
     label: '保留中',
     className:
       'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
   },
-  完了: {
+  [STATUS.REQUEST.DONE]: {
     label: '完了',
     className:
       'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
@@ -198,45 +217,45 @@ function isOverdue(deadline: string | null | undefined) {
 }
 
 function getStatusLabel(status: string | null | undefined) {
-  const key = status ?? '未確認'
+  const key = status ?? STATUS.REQUEST.NEW
   return STATUS_META[key]?.label ?? key
 }
 
 function getPriorityMeta(priority: string | null | undefined) {
-  const key = priority ?? '中'
+  const key = priority ?? PRIORITY.MEDIUM
 
-  if (key === '高') {
+  if (key === PRIORITY.HIGH) {
     return {
-      label: '高',
+      label: PRIORITY.HIGH,
       className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
     }
   }
 
-  if (key === '低') {
+  if (key === PRIORITY.LOW) {
     return {
-      label: '低',
+      label: PRIORITY.LOW,
       className: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200',
     }
   }
 
   return {
-    label: '中',
+    label: PRIORITY.MEDIUM,
     className:
       'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
   }
 }
 
 function getTodoStatusMeta(status: string | null | undefined) {
-  const key = status ?? '未着手'
+  const key = status ?? STATUS.TODO.NOT_STARTED
 
-  if (key === '進行中') {
+  if (key === STATUS.TODO.IN_PROGRESS) {
     return {
       label: '進行中',
       className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
     }
   }
 
-  if (key === '完了') {
+  if (key === STATUS.TODO.DONE) {
     return {
       label: '完了',
       className:
@@ -245,15 +264,15 @@ function getTodoStatusMeta(status: string | null | undefined) {
   }
 
   return {
-    label: '未着手',
+    label: STATUS.TODO.NOT_STARTED,
     className: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
   }
 }
 
 function getTodoCardStyle(todo: TodoItem) {
-  const status = todo.status ?? '未着手'
+  const status = todo.status ?? STATUS.TODO.NOT_STARTED
 
-  if (status === '未着手' && isOverdue(todo.deadline)) {
+  if (status === STATUS.TODO.NOT_STARTED && isOverdue(todo.deadline)) {
     return {
       cardClassName:
         'border border-red-200 bg-red-50/80 shadow-sm shadow-red-100/40',
@@ -262,7 +281,7 @@ function getTodoCardStyle(todo: TodoItem) {
     }
   }
 
-  if (status === '未着手') {
+  if (status === STATUS.TODO.NOT_STARTED) {
     return {
       cardClassName: 'border border-slate-200 bg-white shadow-sm',
       statusClassName:
@@ -270,7 +289,7 @@ function getTodoCardStyle(todo: TodoItem) {
     }
   }
 
-  if (status === '進行中') {
+  if (status === STATUS.TODO.IN_PROGRESS) {
     return {
       cardClassName: 'border border-slate-200 bg-white shadow-sm',
       statusClassName:
@@ -287,10 +306,10 @@ function getTodoCardStyle(todo: TodoItem) {
 
 function sortActiveTodos(todos: TodoItem[]) {
   const rank = (todo: TodoItem) => {
-    const status = todo.status ?? '未着手'
-    if (status === '未着手' && isOverdue(todo.deadline)) return 0
-    if (status === '未着手') return 1
-    if (status === '進行中') return 2
+    const status = todo.status ?? STATUS.TODO.NOT_STARTED
+    if (status === STATUS.TODO.NOT_STARTED && isOverdue(todo.deadline)) return 0
+    if (status === STATUS.TODO.NOT_STARTED) return 1
+    if (status === STATUS.TODO.IN_PROGRESS) return 2
     return 3
   }
 
@@ -313,8 +332,8 @@ function sortActiveTodos(todos: TodoItem[]) {
 }
 
 function getRequestCardStyle(request: RequestItem) {
-  const status = request.status ?? '未確認'
-  if (status === '未確認' && isOverdue(request.deadline)) {
+  const status = request.status ?? STATUS.REQUEST.NEW
+  if (status === STATUS.REQUEST.NEW && isOverdue(request.deadline)) {
     return {
       cardClassName:
         'border border-red-200 bg-red-50/80 shadow-sm shadow-red-100/40',
@@ -323,7 +342,7 @@ function getRequestCardStyle(request: RequestItem) {
     }
   }
 
-  if (status === '未確認') {
+  if (status === STATUS.REQUEST.NEW) {
     return {
       cardClassName: 'border border-slate-200 bg-white shadow-sm',
       statusClassName:
@@ -331,7 +350,7 @@ function getRequestCardStyle(request: RequestItem) {
     }
   }
 
-  if (status === '対応中') {
+  if (status === STATUS.REQUEST.DOING) {
     return {
       cardClassName: 'border border-slate-200 bg-white shadow-sm',
       statusClassName:
@@ -349,10 +368,10 @@ function getRequestCardStyle(request: RequestItem) {
 
 function sortActiveRequests(requests: RequestItem[]) {
   const rank = (request: RequestItem) => {
-    const status = request.status ?? '未確認'
-    if (status === '未確認' && isOverdue(request.deadline)) return 0
-    if (status === '未確認') return 1
-    if (status === '対応中') return 2
+    const status = request.status ?? STATUS.REQUEST.NEW
+    if (status === STATUS.REQUEST.NEW && isOverdue(request.deadline)) return 0
+    if (status === STATUS.REQUEST.NEW) return 1
+    if (status === STATUS.REQUEST.DOING) return 2
     return 3
   }
 
@@ -918,14 +937,14 @@ export default function Home() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [recipientIds, setRecipientIds] = useState<string[]>([])
-  const [status, setStatus] = useState('未確認')
-  const [priority, setPriority] = useState('中')
+  const [status, setStatus] = useState(STATUS.REQUEST.NEW)
+  const [priority, setPriority] = useState(PRIORITY.MEDIUM)
   const [deadline, setDeadline] = useState('')
 
   const [todoTitle, setTodoTitle] = useState('')
   const [todoContent, setTodoContent] = useState('')
-  const [todoStatus, setTodoStatus] = useState('未着手')
-  const [todoPriority, setTodoPriority] = useState('中')
+  const [todoStatus, setTodoStatus] = useState(STATUS.TODO.NOT_STARTED)
+  const [todoPriority, setTodoPriority] = useState(PRIORITY.MEDIUM)
   const [todoDeadline, setTodoDeadline] = useState('')
 
   const [newParentGroupName, setNewParentGroupName] = useState('')
@@ -1498,13 +1517,13 @@ export default function Home() {
 
   const activeReceivedRequests = useMemo(() => {
     return sortActiveRequests(
-      receivedRequests.filter((item) => (item.status ?? '未確認') !== '完了')
+      receivedRequests.filter((item) => (item.status ?? STATUS.REQUEST.NEW) !== STATUS.REQUEST.DONE)
     )
   }, [receivedRequests])
 
   const historyRequests = useMemo(() => {
     return requests
-      .filter((item) => (item.status ?? '未確認') === '完了')
+      .filter((item) => (item.status ?? STATUS.REQUEST.NEW) === STATUS.REQUEST.DONE)
       .sort((a, b) => {
         const completedA = a.completed_at
           ? new Date(a.completed_at).getTime()
@@ -1519,14 +1538,14 @@ export default function Home() {
   const activeTodos = useMemo(() => {
     return sortActiveTodos(
       todos.filter(
-        (item) => !item.is_completed && (item.status ?? '未着手') !== '完了'
+        (item) => !item.is_completed && (item.status ?? STATUS.TODO.NOT_STARTED) !== STATUS.TODO.DONE
       )
     )
   }, [todos])
 
   const todoHistoryItems = useMemo(() => {
     return todos
-      .filter((item) => item.is_completed || (item.status ?? '未着手') === '完了')
+      .filter((item) => item.is_completed || (item.status ?? STATUS.TODO.NOT_STARTED) === STATUS.TODO.DONE)
       .sort((a, b) => {
         const completedA = a.completed_at
           ? new Date(a.completed_at).getTime()
@@ -1559,7 +1578,7 @@ export default function Home() {
   }, [todoHistoryItems, isAdmin, todoOwnerFilter, isOwnTodo])
 
   const activeSentRequests = useMemo(() => {
-    return sentRequests.filter((item) => (item.status ?? '未確認') !== '完了')
+    return sentRequests.filter((item) => (item.status ?? STATUS.REQUEST.NEW) !== STATUS.REQUEST.DONE)
   }, [sentRequests])
 
   const sentDisplayItems = useMemo<SentDisplayItem[]>(() => {
@@ -1630,13 +1649,13 @@ export default function Home() {
 
   const dashboardCounts = useMemo(() => {
     const overduePendingCount = receivedRequests.filter((item) => {
-      const currentStatus = item.status ?? '未確認'
-      return currentStatus !== '完了' && isOverdue(item.deadline)
+      const currentStatus = item.status ?? STATUS.REQUEST.NEW
+      return currentStatus !== STATUS.REQUEST.DONE && isOverdue(item.deadline)
     }).length
 
     const pendingCount = receivedRequests.filter((item) => {
-      const currentStatus = item.status ?? '未確認'
-      return currentStatus !== '完了'
+      const currentStatus = item.status ?? STATUS.REQUEST.NEW
+      return currentStatus !== STATUS.REQUEST.DONE
     }).length
 
     const recentSent = sentDisplayItems.slice(0, 5)
@@ -1667,8 +1686,8 @@ export default function Home() {
     if (!currentUserId) return 0
 
     return requests.filter((item) => {
-      const currentStatus = item.status ?? '未確認'
-      return item.recipient_id === currentUserId && currentStatus !== '完了'
+      const currentStatus = item.status ?? STATUS.REQUEST.NEW
+      return item.recipient_id === currentUserId && currentStatus !== STATUS.REQUEST.DONE
     }).length
   }, [requests, currentUserId])
 
@@ -1676,11 +1695,11 @@ export default function Home() {
     if (!isAdmin || !currentUserId) return 0
 
     return todos.filter((item) => {
-      const currentStatus = item.status ?? '未着手'
+      const currentStatus = item.status ?? STATUS.TODO.NOT_STARTED
       return (
         isOwnTodo(item) &&
         !item.is_completed &&
-        currentStatus !== '完了' &&
+        currentStatus !== STATUS.TODO.DONE &&
         isOverdue(item.deadline)
       )
     }).length
@@ -1819,8 +1838,8 @@ export default function Home() {
     setTitle('')
     setContent('')
     setRecipientIds([])
-    setStatus('未確認')
-    setPriority('中')
+    setStatus(STATUS.REQUEST.NEW)
+    setPriority(PRIORITY.MEDIUM)
     setDeadline('')
     setEditingId(null)
     setUserSearch('')
@@ -1829,8 +1848,8 @@ export default function Home() {
   const resetTodoForm = () => {
     setTodoTitle('')
     setTodoContent('')
-    setTodoStatus('未着手')
-    setTodoPriority('中')
+    setTodoStatus(STATUS.TODO.NOT_STARTED)
+    setTodoPriority(PRIORITY.MEDIUM)
     setTodoDeadline('')
     setEditingTodoId(null)
   }
@@ -1993,7 +2012,7 @@ export default function Home() {
 
     try {
       if (editingTodoId) {
-        const nextIsCompleted = todoStatus === '完了'
+        const nextIsCompleted = todoStatus === STATUS.TODO.DONE
         const { error } = await supabase
           .from('todos')
           .update({
@@ -2028,7 +2047,7 @@ export default function Home() {
         return
       }
 
-      const nextIsCompleted = todoStatus === '完了'
+      const nextIsCompleted = todoStatus === STATUS.TODO.DONE
       const { error } = await supabase.from('todos').insert({
         title: trimmedTitle,
         content: trimmedContent || null,
@@ -2065,8 +2084,8 @@ export default function Home() {
     setEditingTodoId(todo.id)
     setTodoTitle(todo.title)
     setTodoContent(todo.content ?? '')
-    setTodoStatus(todo.status ?? '未着手')
-    setTodoPriority(todo.priority ?? '中')
+    setTodoStatus(todo.status ?? STATUS.TODO.NOT_STARTED)
+    setTodoPriority(todo.priority ?? PRIORITY.MEDIUM)
     setTodoDeadline(todo.deadline ?? '')
     setTodoFormOpen(true)
     setCreateFormOpen(false)
@@ -2103,7 +2122,7 @@ export default function Home() {
   const handleTodoStatusChange = async (todoId: string, nextStatus: string) => {
     if (!isAdmin) return
 
-    const nextIsCompleted = nextStatus === '完了'
+    const nextIsCompleted = nextStatus === STATUS.TODO.DONE
 
     const { error } = await supabase
       .from('todos')
@@ -2608,8 +2627,8 @@ export default function Home() {
     setTitle(request.title)
     setContent(request.content)
     setRecipientIds(request.recipient_id ? [request.recipient_id] : [])
-    setStatus(request.status ?? '未確認')
-    setPriority(request.priority ?? '中')
+    setStatus(request.status ?? STATUS.REQUEST.NEW)
+    setPriority(request.priority ?? PRIORITY.MEDIUM)
     setDeadline(request.deadline ?? '')
     setCreateFormOpen(true)
     setTodoFormOpen(false)
@@ -2652,7 +2671,7 @@ export default function Home() {
       status: nextStatus,
     }
 
-    if (nextStatus === '完了') {
+    if (nextStatus === STATUS.REQUEST.DONE) {
       updatePayload.completed_at = new Date().toISOString()
     } else {
       updatePayload.completed_at = null
@@ -3434,8 +3453,8 @@ export default function Home() {
 
 
   const renderReceivedStatusSelect = (request: RequestItem) => {
-    const currentStatus = request.status ?? '未確認'
-    const currentMeta = STATUS_META[currentStatus] ?? STATUS_META['未確認']
+    const currentStatus = request.status ?? STATUS.REQUEST.NEW
+    const currentMeta = STATUS_META[currentStatus] ?? STATUS_META[STATUS.REQUEST.NEW]
 
     return (
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -3447,11 +3466,11 @@ export default function Home() {
             }
             className={cn(
               'w-full appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold outline-none transition',
-              currentStatus === '未確認' &&
+              currentStatus === STATUS.REQUEST.NEW &&
                 'border-red-200 bg-red-50 text-red-700',
-              currentStatus === '対応中' &&
+              currentStatus === STATUS.REQUEST.DOING &&
                 'border-amber-200 bg-amber-50 text-amber-700',
-              currentStatus === '完了' &&
+              currentStatus === STATUS.REQUEST.DONE &&
                 'border-emerald-200 bg-emerald-50 text-emerald-700'
             )}
           >
@@ -3462,9 +3481,9 @@ export default function Home() {
           <span
             className={cn(
               'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2',
-              currentStatus === '未確認' && 'text-red-500',
-              currentStatus === '対応中' && 'text-amber-500',
-              currentStatus === '完了' && 'text-emerald-500'
+              currentStatus === STATUS.REQUEST.NEW && 'text-red-500',
+              currentStatus === STATUS.REQUEST.DOING && 'text-amber-500',
+              currentStatus === STATUS.REQUEST.DONE && 'text-emerald-500'
             )}
           >
             <ChevronDownIcon />
@@ -3525,7 +3544,7 @@ export default function Home() {
           <div className="flex shrink-0 items-center gap-2">
             {request.sender_id === effectiveUserId && (
               <>
-                {(request.status ?? '未確認') !== '完了' && (
+                {(request.status ?? STATUS.REQUEST.NEW) !== STATUS.REQUEST.DONE && (
                   <button
                     type="button"
                     onClick={() => handleStartEdit(request)}
@@ -3569,13 +3588,13 @@ export default function Home() {
             {showRecipient && <span>共有先：{recipientName}</span>}
             <span>期限：{formatDate(request.deadline)}</span>
             <span>作成日：{formatDateTime(request.created_at)}</span>
-            {(request.status ?? '未確認') === '完了' && (
+            {(request.status ?? STATUS.REQUEST.NEW) === STATUS.REQUEST.DONE && (
               <span>完了日：{formatDateTime(request.completed_at)}</span>
             )}
           </div>
 
           {request.recipient_id === effectiveUserId &&
-            (request.status ?? '未確認') !== '完了' &&
+            (request.status ?? STATUS.REQUEST.NEW) !== STATUS.REQUEST.DONE &&
             renderReceivedStatusSelect(request)}
         </div>
       </div>
@@ -3588,7 +3607,7 @@ export default function Home() {
     }
 
     const unresolved = item.requests.filter(
-      (request) => (request.status ?? '未確認') !== '完了'
+      (request) => (request.status ?? STATUS.REQUEST.NEW) !== STATUS.REQUEST.DONE
     )
     const unresolvedNames = unresolved.map((request) =>
       getUserLabel(
@@ -3638,13 +3657,13 @@ export default function Home() {
             {item.requests
               .slice()
               .sort((a, b) => {
-                const statusA = a.status ?? '未確認'
-                const statusB = b.status ?? '未確認'
+                const statusA = a.status ?? STATUS.REQUEST.NEW
+                const statusB = b.status ?? STATUS.REQUEST.NEW
                 if (statusA === statusB) return 0
-                if (statusA === '未確認') return -1
-                if (statusB === '未確認') return 1
-                if (statusA === '対応中') return -1
-                if (statusB === '対応中') return 1
+                if (statusA === STATUS.REQUEST.NEW) return -1
+                if (statusB === STATUS.REQUEST.NEW) return 1
+                if (statusA === STATUS.REQUEST.DOING) return -1
+                if (statusB === STATUS.REQUEST.DOING) return 1
                 return 0
               })
               .map((request) => {
@@ -3848,7 +3867,7 @@ export default function Home() {
               onChange={(event) => setStatus(event.target.value)}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-400"
             >
-              {STATUS_OPTIONS.filter((item) => item !== '完了').map((item) => (
+              {STATUS_OPTIONS.filter((item) => item !== STATUS.REQUEST.DONE).map((item) => (
                 <option key={item} value={item}>
                   {getStatusLabel(item)}
                 </option>
@@ -3912,7 +3931,7 @@ export default function Home() {
   )
 
   const renderTodoStatusSelect = (todo: TodoItem) => {
-    const currentStatus = todo.status ?? '未着手'
+    const currentStatus = todo.status ?? STATUS.TODO.NOT_STARTED
     const currentMeta = getTodoStatusMeta(currentStatus)
 
     return (
@@ -3925,11 +3944,11 @@ export default function Home() {
             }
             className={cn(
               'w-full appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold outline-none transition',
-              currentStatus === '未着手' &&
+              currentStatus === STATUS.TODO.NOT_STARTED &&
                 'border-red-200 bg-red-50 text-red-700',
-              currentStatus === '進行中' &&
+              currentStatus === STATUS.TODO.IN_PROGRESS &&
                 'border-amber-200 bg-amber-50 text-amber-700',
-              currentStatus === '完了' &&
+              currentStatus === STATUS.REQUEST.DONE &&
                 'border-emerald-200 bg-emerald-50 text-emerald-700'
             )}
           >
@@ -3940,9 +3959,9 @@ export default function Home() {
           <span
             className={cn(
               'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2',
-              currentStatus === '未着手' && 'text-red-500',
-              currentStatus === '進行中' && 'text-amber-500',
-              currentStatus === '完了' && 'text-emerald-500'
+              currentStatus === STATUS.TODO.NOT_STARTED && 'text-red-500',
+              currentStatus === STATUS.TODO.IN_PROGRESS && 'text-amber-500',
+              currentStatus === STATUS.REQUEST.DONE && 'text-emerald-500'
             )}
           >
             <ChevronDownIcon />
@@ -4103,7 +4122,7 @@ export default function Home() {
                   cardStyle.statusClassName
                 )}
               >
-                {todo.status ?? '未着手'}
+                {todo.status ?? STATUS.TODO.NOT_STARTED}
               </span>
               {renderPriorityBadge(todo.priority)}
             </div>
@@ -4477,11 +4496,11 @@ export default function Home() {
   const renderRecentSentCard = (item: SentDisplayItem) => {
     const hasOverdueUnconfirmed =
       item.type === 'single'
-        ? (item.request.status ?? '未確認') === '未確認' &&
+        ? (item.request.status ?? STATUS.REQUEST.NEW) === STATUS.REQUEST.NEW &&
           isOverdue(item.request.deadline)
         : item.requests.some(
             (request) =>
-              (request.status ?? '未確認') === '未確認' &&
+              (request.status ?? STATUS.REQUEST.NEW) === STATUS.REQUEST.NEW &&
               isOverdue(request.deadline)
           )
 
@@ -6658,13 +6677,13 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     ステータス
                   </p>
-                  <p className="mt-1">{todoDetailTarget.status ?? '未着手'}</p>
+                  <p className="mt-1">{todoDetailTarget.status ?? STATUS.TODO.NOT_STARTED}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     優先度
                   </p>
-                  <p className="mt-1">{todoDetailTarget.priority ?? '中'}</p>
+                  <p className="mt-1">{todoDetailTarget.priority ?? PRIORITY.MEDIUM}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -6680,7 +6699,7 @@ export default function Home() {
                     {formatDateTime(todoDetailTarget.created_at)}
                   </p>
                 </div>
-                {(todoDetailTarget.status ?? '未着手') === '完了' && (
+                {(todoDetailTarget.status ?? STATUS.TODO.NOT_STARTED) === STATUS.TODO.DONE && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                       完了日
@@ -6764,7 +6783,7 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                     優先度
                   </p>
-                  <p className="mt-1">{detailTarget.priority ?? '中'}</p>
+                  <p className="mt-1">{detailTarget.priority ?? PRIORITY.MEDIUM}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -6780,7 +6799,7 @@ export default function Home() {
                     {formatDateTime(detailTarget.created_at)}
                   </p>
                 </div>
-                {(detailTarget.status ?? '未確認') === '完了' && (
+                {(detailTarget.status ?? STATUS.REQUEST.NEW) === STATUS.REQUEST.DONE && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
                       完了日
