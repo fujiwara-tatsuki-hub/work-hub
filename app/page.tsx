@@ -3303,7 +3303,7 @@ export default function Home() {
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.22),_transparent_30%),radial-gradient(circle_at_20%_35%,_rgba(59,130,246,0.16),_transparent_22%)]" />
       <div className="relative shrink-0 border-b border-white/10 px-4 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div
             className={cn(
               'min-w-0',
@@ -4538,34 +4538,34 @@ export default function Home() {
   }
 
   const renderDashboard = () => (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-3 lg:gap-6">
       <a
         href={MY_CONNECT_URL}
         target="_blank"
         rel="noreferrer"
-        className="group rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)]"
+        className="group min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)] sm:rounded-[32px] sm:p-6"
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <p className="text-[15px] font-semibold text-slate-800">
               マイコネクト
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               外部リンク
             </span>
           </div>
-          <div className="mt-5 flex-1">
-            <h2 className="text-[22px] font-bold tracking-tight text-slate-900">
+          <div className="mt-4 min-w-0 flex-1 sm:mt-5">
+            <h2 className="text-[18px] font-bold tracking-tight text-slate-900 sm:text-[22px]">
               マイコネクトを開く
             </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
+            <p className="mt-3 text-sm leading-7 text-slate-600 break-words">
               タップすると指定のマイコネクト画面へ
               <br className="hidden sm:block" />
               移動します。
             </p>
           </div>
-          <div className="mt-6">
-            <div className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)]">
+          <div className="mt-5 sm:mt-6">
+            <div className="inline-flex w-full max-w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)] sm:px-5">
               <ExternalLinkIcon />
               マイコネクトを開く
             </div>
@@ -4575,14 +4575,14 @@ export default function Home() {
 
       <div
         className={cn(
-          'rounded-[32px] border bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl',
+          'min-w-0 max-w-full overflow-hidden rounded-[28px] border bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6',
           dashboardCounts.overduePendingCount > 0
             ? 'border-red-200/80'
             : 'border-white/60'
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <p
               className={cn(
                 'text-[15px] font-semibold',
@@ -4593,16 +4593,16 @@ export default function Home() {
             >
               期限切れ・要対応
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               優先確認
             </span>
           </div>
 
-          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
+          <div className="mt-4 flex min-w-0 flex-1 items-end justify-between gap-3 sm:mt-5 sm:gap-4">
             <div>
               <p
                 className={cn(
-                  'text-7xl font-bold leading-none tracking-tight',
+                  'text-6xl font-bold leading-none tracking-tight sm:text-7xl',
                   dashboardCounts.overduePendingCount > 0
                     ? 'text-red-700'
                     : 'text-slate-900'
@@ -4649,18 +4649,18 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <p className="text-[15px] font-semibold text-slate-800">
               未対応の依頼
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               受信
             </span>
           </div>
 
-          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
+          <div className="mt-4 flex min-w-0 flex-1 items-end justify-between gap-3 sm:mt-5 sm:gap-4">
             <div>
               <p className="text-7xl font-bold leading-none tracking-tight text-slate-900">
                 {dashboardCounts.pendingCount}
@@ -4694,13 +4694,13 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <p className="text-[15px] font-semibold text-slate-800">
               最近の送信依頼
             </p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               最新5件
             </span>
           </div>
@@ -4716,11 +4716,11 @@ export default function Home() {
       </div>
 
       {!isAdmin && (
-        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-start justify-between gap-3">
               <p className="text-[15px] font-semibold text-slate-800">操作</p>
-              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+              <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
                 クイック
               </span>
             </div>
@@ -4763,11 +4763,11 @@ export default function Home() {
       )}
 
       {isAdmin && (
-        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between">
+            <div className="flex min-w-0 items-start justify-between gap-3">
               <p className="text-[15px] font-semibold text-slate-800">自分のToDo</p>
-              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+              <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
                 管理者のみ
               </span>
             </div>
@@ -4806,11 +4806,11 @@ export default function Home() {
         </div>
       )}
 
-      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between">
+          <div className="flex min-w-0 items-start justify-between gap-3">
             <p className="text-[15px] font-semibold text-slate-800">概要</p>
-            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               件数サマリ
             </span>
           </div>
@@ -6217,7 +6217,7 @@ export default function Home() {
                         </span>
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500">ロール</label>
                           <select
