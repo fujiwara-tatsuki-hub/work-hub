@@ -3293,13 +3293,17 @@ export default function Home() {
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
     <div
       className={cn(
-        'relative flex h-full flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#07111f_0%,#0b1830_42%,#0a1425_100%)] text-white shadow-[0_24px_80px_rgba(2,8,23,0.45)]',
-        mobile ? 'h-full w-72 rounded-r-[32px]' : desktopSidebarCollapsed ? 'h-screen w-[88px]' : 'h-screen w-72'
+        'relative flex max-h-dvh min-h-dvh flex-col overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#07111f_0%,#0b1830_42%,#0a1425_100%)] text-white shadow-[0_24px_80px_rgba(2,8,23,0.45)]',
+        mobile
+          ? 'w-72 max-w-[calc(100vw-24px)] rounded-r-[32px]'
+          : desktopSidebarCollapsed
+          ? 'w-[88px]'
+          : 'w-72'
       )}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(96,165,250,0.22),_transparent_30%),radial-gradient(circle_at_20%_35%,_rgba(59,130,246,0.16),_transparent_22%)]" />
-      <div className="relative border-b border-white/10 px-4 py-4">
-        <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="relative shrink-0 border-b border-white/10 px-4 py-4">
+        <div className="flex items-center justify-between">
           <div
             className={cn(
               'min-w-0',
@@ -3343,7 +3347,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="relative border-b border-white/10 px-4 py-5">
+      <div className="relative shrink-0 border-b border-white/10 px-4 py-5">
         <div
           className={cn(
             'rounded-[28px] border border-sky-300/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_18px_40px_rgba(37,99,235,0.18),0_0_0_1px_rgba(148,163,184,0.08)] backdrop-blur-xl',
@@ -3375,57 +3379,59 @@ export default function Home() {
         </div>
       </div>
 
-      <nav className="relative flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-5">
-        {menuItems.map((item) => {
-          const active = activeView === item.key
-          const badgeCount =
-            item.key === 'todo'
-              ? sidebarTodoOverdueCount
-              : item.key === 'received'
-              ? sidebarReceivedPendingCount
-              : 0
-          const showLabel = !desktopSidebarCollapsed || mobile
+      <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <nav className="space-y-2 px-3 py-5">
+          {menuItems.map((item) => {
+            const active = activeView === item.key
+            const badgeCount =
+              item.key === 'todo'
+                ? sidebarTodoOverdueCount
+                : item.key === 'received'
+                ? sidebarReceivedPendingCount
+                : 0
+            const showLabel = !desktopSidebarCollapsed || mobile
 
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                setActiveView(item.key)
-                setMobileSidebarOpen(false)
-              }}
-              className={cn(
-                'relative flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-[15px] font-medium transition backdrop-blur',
-                active
-                  ? 'border border-sky-300/20 bg-[linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_30px_rgba(96,165,250,0.14)]'
-                  : 'text-slate-200 hover:bg-white/8',
-                desktopSidebarCollapsed && !mobile && 'justify-center px-0'
-              )}
-            >
-              <span className={cn('relative inline-flex', active ? 'text-white' : 'text-slate-300')}>
-                {item.icon}
-                {!showLabel && badgeCount > 0 && (
-                  <span className="absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
-                    {badgeCount > 99 ? '99+' : badgeCount}
-                  </span>
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  setActiveView(item.key)
+                  setMobileSidebarOpen(false)
+                }}
+                className={cn(
+                  'relative flex w-full items-center gap-3 rounded-[22px] px-4 py-3 text-left text-[15px] font-medium transition backdrop-blur',
+                  active
+                    ? 'border border-sky-300/20 bg-[linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.05))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_30px_rgba(96,165,250,0.14)]'
+                    : 'text-slate-200 hover:bg-white/8',
+                  desktopSidebarCollapsed && !mobile && 'justify-center px-0'
                 )}
-              </span>
-              {showLabel && (
-                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                  <span className="truncate">{item.label}</span>
-                  {badgeCount > 0 && (
-                    <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
+              >
+                <span className={cn('relative inline-flex', active ? 'text-white' : 'text-slate-300')}>
+                  {item.icon}
+                  {!showLabel && badgeCount > 0 && (
+                    <span className="absolute -right-2 -top-2 inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
                   )}
                 </span>
-              )}
-            </button>
-          )
-        })}
-      </nav>
+                {showLabel && (
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate">{item.label}</span>
+                    {badgeCount > 0 && (
+                      <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold leading-none text-white shadow-[0_6px_16px_rgba(239,68,68,0.35)]">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
 
-      <div className="relative mt-auto border-t border-white/10 p-3">
+      <div className="relative shrink-0 border-t border-white/10 p-3">
         <button
           type="button"
           onClick={handleLogout}
@@ -4532,24 +4538,24 @@ export default function Home() {
   }
 
   const renderDashboard = () => (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+    <div className="grid gap-6 lg:grid-cols-3">
       <a
         href={MY_CONNECT_URL}
         target="_blank"
         rel="noreferrer"
-        className="group w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)] sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]"
+        className="group rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)]"
       >
         <div className="flex h-full flex-col">
-          <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">
               マイコネクト
             </p>
-            <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               外部リンク
             </span>
           </div>
           <div className="mt-5 flex-1">
-            <h2 className="text-[20px] font-bold tracking-tight text-slate-900 sm:text-[22px]">
+            <h2 className="text-[22px] font-bold tracking-tight text-slate-900">
               マイコネクトを開く
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -4558,8 +4564,8 @@ export default function Home() {
               移動します。
             </p>
           </div>
-          <div className="mt-5 sm:mt-6">
-            <div className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)] sm:px-5">
+          <div className="mt-6">
+            <div className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)]">
               <ExternalLinkIcon />
               マイコネクトを開く
             </div>
@@ -4569,14 +4575,14 @@ export default function Home() {
 
       <div
         className={cn(
-          'w-full min-w-0 rounded-[28px] border bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]',
+          'rounded-[32px] border bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl',
           dashboardCounts.overduePendingCount > 0
             ? 'border-red-200/80'
             : 'border-white/60'
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <p
               className={cn(
                 'text-[15px] font-semibold',
@@ -4587,12 +4593,12 @@ export default function Home() {
             >
               期限切れ・要対応
             </p>
-            <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               優先確認
             </span>
           </div>
 
-          <div className="mt-5 flex flex-1 items-end justify-between gap-3">
+          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
             <div>
               <p
                 className={cn(
@@ -4643,20 +4649,20 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex h-full flex-col">
-          <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">
               未対応の依頼
             </p>
-            <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               受信
             </span>
           </div>
 
-          <div className="mt-5 flex flex-1 items-end justify-between gap-3">
+          <div className="mt-5 flex flex-1 items-end justify-between gap-4">
             <div>
-              <p className="text-6xl font-bold leading-none tracking-tight text-slate-900 sm:text-7xl">
+              <p className="text-7xl font-bold leading-none tracking-tight text-slate-900">
                 {dashboardCounts.pendingCount}
               </p>
             </div>
@@ -4688,13 +4694,13 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex h-full flex-col">
-          <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">
               最近の送信依頼
             </p>
-            <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               最新5件
             </span>
           </div>
@@ -4710,11 +4716,11 @@ export default function Home() {
       </div>
 
       {!isAdmin && (
-        <div className="w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <div className="flex h-full flex-col">
-            <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex items-center justify-between">
               <p className="text-[15px] font-semibold text-slate-800">操作</p>
-              <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
                 クイック
               </span>
             </div>
@@ -4757,26 +4763,26 @@ export default function Home() {
       )}
 
       {isAdmin && (
-        <div className="w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+        <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
           <div className="flex h-full flex-col">
-            <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex items-center justify-between">
               <p className="text-[15px] font-semibold text-slate-800">自分のToDo</p>
-              <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+              <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
                 管理者のみ
               </span>
             </div>
 
-            <div className="mt-5 grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="mt-5 grid flex-1 grid-cols-2 gap-4">
               <div className="rounded-[24px] border border-amber-100 bg-[linear-gradient(180deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9))] p-4 text-center shadow-sm">
                 <p className="text-sm font-semibold text-amber-700">未着手・進行中</p>
-                <p className="mt-3 text-4xl font-bold leading-none text-[#9a4b00] sm:text-5xl">
+                <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
                   {dashboardCounts.todoPendingCount}
                 </p>
               </div>
 
               <div className="rounded-[24px] border border-red-100 bg-[linear-gradient(180deg,rgba(254,242,242,0.95),rgba(254,226,226,0.9))] p-4 text-center shadow-sm">
                 <p className="text-sm font-semibold text-red-700">期限切れToDo</p>
-                <p className="mt-3 text-4xl font-bold leading-none text-[#b42318] sm:text-5xl">
+                <p className="mt-3 text-5xl font-bold leading-none text-[#b42318]">
                   {dashboardCounts.todoOverdueCount}
                 </p>
               </div>
@@ -4800,19 +4806,19 @@ export default function Home() {
         </div>
       )}
 
-      <div className="w-full min-w-0 rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.10)] backdrop-blur-xl sm:rounded-[32px] sm:p-6 sm:shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+      <div className="rounded-[32px] border border-white/60 bg-white/65 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
         <div className="flex h-full flex-col">
-          <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <p className="text-[15px] font-semibold text-slate-800">概要</p>
-            <span className="max-w-[42vw] shrink-0 truncate rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm sm:max-w-none">
+            <span className="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               件数サマリ
             </span>
           </div>
 
-          <div className="mt-5 grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="mt-5 grid flex-1 grid-cols-3 gap-4">
             <div className="rounded-[24px] border border-amber-100 bg-[linear-gradient(180deg,rgba(255,249,219,0.95),rgba(255,237,188,0.92))] p-4 text-center shadow-sm">
               <p className="text-sm font-semibold text-amber-700">受信</p>
-              <p className="mt-3 text-4xl font-bold leading-none text-[#9a4b00] sm:text-5xl">
+              <p className="mt-3 text-5xl font-bold leading-none text-[#9a4b00]">
                 {dashboardCounts.receivedTotal}
               </p>
               <BarChartMini tone="amber" />
@@ -4820,7 +4826,7 @@ export default function Home() {
 
             <div className="rounded-[24px] border border-blue-100 bg-[linear-gradient(180deg,rgba(236,244,255,0.95),rgba(219,234,254,0.92))] p-4 text-center shadow-sm">
               <p className="text-sm font-semibold text-blue-700">送信</p>
-              <p className="mt-3 text-4xl font-bold leading-none text-[#2d4bb3] sm:text-5xl">
+              <p className="mt-3 text-5xl font-bold leading-none text-[#2d4bb3]">
                 {dashboardCounts.sentTotal}
               </p>
               <BarChartMini tone="blue" />
@@ -4828,7 +4834,7 @@ export default function Home() {
 
             <div className="rounded-[24px] border border-emerald-100 bg-[linear-gradient(180deg,rgba(235,255,245,0.95),rgba(209,250,229,0.92))] p-4 text-center shadow-sm">
               <p className="text-sm font-semibold text-emerald-700">完了</p>
-              <p className="mt-3 text-4xl font-bold leading-none text-[#157347] sm:text-5xl">
+              <p className="mt-3 text-5xl font-bold leading-none text-[#157347]">
                 {dashboardCounts.completedTotal}
               </p>
               <BarChartMini tone="green" />
@@ -6473,8 +6479,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_30%),linear-gradient(to_bottom,_#f8fafc,_#eef2f7)] text-slate-900">
-      <div className="flex min-h-screen w-full overflow-x-hidden">
-        <div className="hidden h-screen lg:sticky lg:top-0 lg:block">
+      <div className="min-h-screen">
+        <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block">
           <Sidebar />
         </div>
 
@@ -6485,13 +6491,18 @@ export default function Home() {
               onClick={() => setMobileSidebarOpen(false)}
               className="absolute inset-0 bg-slate-950/40"
             />
-            <div className="absolute left-0 top-0 h-full max-w-full overflow-hidden">
+            <div className="absolute left-0 top-0 h-dvh max-w-full overflow-hidden">
               <Sidebar mobile />
             </div>
           </div>
         )}
 
-        <div className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
+        <div
+          className={cn(
+            'flex min-h-screen min-w-0 flex-col overflow-x-hidden',
+            desktopSidebarCollapsed ? 'lg:pl-[88px]' : 'lg:pl-72'
+          )}
+        >
           <header className="sticky top-0 z-20 border-b border-white/50 bg-white/55 backdrop-blur-xl">
             <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
@@ -6586,8 +6597,8 @@ export default function Home() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-x-hidden px-3 py-5 sm:px-6 lg:px-8">
-            <div className="mx-auto w-full min-w-0 max-w-7xl space-y-5">
+          <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl space-y-5">
               {isProxyMode && (
                 <div className="flex items-center justify-between rounded-[24px] border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                   <p>
