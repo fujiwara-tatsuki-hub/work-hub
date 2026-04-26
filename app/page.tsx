@@ -846,13 +846,15 @@ function ExternalLinkIcon() {
 function BarChartMini({
   tone,
 }: {
-  tone: 'amber' | 'blue' | 'green'
+  tone: 'amber' | 'blue' | 'green' | 'red'
 }) {
   const toneClass =
     tone === 'amber'
       ? 'bg-amber-500/80'
       : tone === 'blue'
       ? 'bg-blue-500/80'
+      : tone === 'red'
+      ? 'bg-red-500/80'
       : 'bg-emerald-500/80'
 
   return (
@@ -4832,12 +4834,12 @@ export default function Home() {
               <BarChartMini tone="blue" />
             </div>
 
-            <div className="rounded-[24px] border border-emerald-100 bg-[linear-gradient(180deg,rgba(235,255,245,0.95),rgba(209,250,229,0.92))] p-4 text-center shadow-sm">
-              <p className="text-sm font-semibold text-emerald-700">完了</p>
-              <p className="mt-3 text-5xl font-bold leading-none text-[#157347]">
-                {dashboardCounts.completedTotal}
+            <div className="rounded-[24px] border border-red-100 bg-[linear-gradient(180deg,rgba(254,242,242,0.95),rgba(254,226,226,0.92))] p-4 text-center shadow-sm">
+              <p className="text-sm font-semibold text-red-700">期限切れ</p>
+              <p className="mt-3 text-5xl font-bold leading-none text-[#b42318]">
+                {dashboardCounts.overduePendingCount}
               </p>
-              <BarChartMini tone="green" />
+              <BarChartMini tone="red" />
             </div>
           </div>
         </div>
