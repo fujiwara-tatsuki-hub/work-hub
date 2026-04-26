@@ -3255,7 +3255,7 @@ export default function Home() {
   }
 
   const handleCopyTemplate = async (item: TemplateItem) => {
-    const text = ['件名：' + (item.subject || ''), '', item.body || ''].join('\n')
+    const text = item.body || ''
     try {
       await navigator.clipboard.writeText(text)
       alert('テンプレートをコピーしました。')
