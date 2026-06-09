@@ -1657,7 +1657,13 @@ export default function Home() {
       (item.status ?? STATUS.TODO.NOT_STARTED) === STATUS.TODO.NOT_STARTED &&
       isOverdue(item.deadline)
     ).length
-    const combinedOverdueCount = overduePendingCount + todoOverdueCount
+    const allTodoOverdueCount = isAdmin
+      ? activeTodos.filter((item) =>
+          (item.status ?? STATUS.TODO.NOT_STARTED) === STATUS.TODO.NOT_STARTED &&
+          isOverdue(item.deadline)
+        ).length
+      : 0
+    const combinedOverdueCount = overduePendingCount + allTodoOverdueCount
 
     return {
       overduePendingCount,
