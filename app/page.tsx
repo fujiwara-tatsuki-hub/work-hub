@@ -3521,7 +3521,7 @@ export default function Home() {
       <div
         key={request.id}
         className={cn(
-          'flex h-full min-h-[320px] flex-col rounded-[28px] p-4 transition sm:p-5',
+          'flex h-full flex-col rounded-[28px] p-4 transition sm:p-5',
           cardStyle.cardClassName
         )}
       >
@@ -3578,8 +3578,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-3 flex-1">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+        <div className="mt-3">
+          <p className="line-clamp-3 text-sm leading-6 text-slate-700">
             {request.content}
           </p>
         </div>
@@ -3620,7 +3620,7 @@ export default function Home() {
     return (
       <div
         key={item.batchId}
-        className="flex h-full min-h-[320px] flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+        className="flex h-full flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -3634,8 +3634,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-3 flex-1">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+        <div className="mt-3">
+          <p className="line-clamp-3 text-sm leading-6 text-slate-700">
             {item.content}
           </p>
         </div>
@@ -4108,7 +4108,7 @@ export default function Home() {
       <div
         key={todo.id}
         className={cn(
-          'flex h-full min-h-[320px] flex-col rounded-[28px] p-4 transition sm:p-5',
+          'flex h-full flex-col rounded-[28px] p-4 transition sm:p-5',
           cardStyle.cardClassName
         )}
       >
@@ -4163,8 +4163,8 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-3 flex-1">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+        <div className="mt-3">
+          <p className="line-clamp-3 text-sm leading-6 text-slate-700">
             {todo.content || '内容なし'}
           </p>
         </div>
