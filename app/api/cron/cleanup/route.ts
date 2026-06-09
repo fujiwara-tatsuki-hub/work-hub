@@ -43,26 +43,24 @@ export async function GET(request: NextRequest) {
       now.getTime() - 30 * 24 * 60 * 60 * 1000
     ).toISOString()
 
-    // requests 削除（完了後7日）
+    // requests 削除（完了後7日、またはcompleted_atが未設定の完了済み）
     const { data: rData, error: rError } = await supabase
       .from('requests')
       .delete()
       .eq('status', '完了')
-      .not('completed_at', 'is', null)
-      .lte('completed_at', sevenDaysAgo)
+      .or(`completed_at.lte.${sevenDaysAgo},completed_at.is.null`)
       .select('id')
 
     if (rError) {
       return NextResponse.json({ ok: false, error: rError.message })
     }
 
-    // todos 削除（完了後7日）
+    // todos 削除（完了後7日、またはcompleted_atが未設定の完了済み）
     const { data: tData, error: tError } = await supabase
       .from('todos')
       .delete()
       .eq('is_completed', true)
-      .not('completed_at', 'is', null)
-      .lte('completed_at', sevenDaysAgo)
+      .or(`completed_at.lte.${sevenDaysAgo},completed_at.is.null`)
       .select('id')
 
     if (tError) {
