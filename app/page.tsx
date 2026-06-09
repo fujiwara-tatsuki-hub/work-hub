@@ -1552,10 +1552,7 @@ export default function Home() {
   const isOwnTodo = useMemo(() => {
     return (todo: TodoItem) => {
       if (!currentUserId) return false
-      return (
-        todo.created_by === currentUserId ||
-        todo.assigned_to === currentUserId
-      )
+      return todo.assigned_to === currentUserId
     }
   }, [currentUserId])
 
@@ -1657,6 +1654,7 @@ export default function Home() {
       : []
     const todoPendingCount = ownActiveTodos.length
     const todoOverdueCount = ownActiveTodos.filter((item) =>
+      (item.status ?? STATUS.TODO.NOT_STARTED) === STATUS.TODO.NOT_STARTED &&
       isOverdue(item.deadline)
     ).length
     const combinedOverdueCount = overduePendingCount + todoOverdueCount
@@ -1665,14 +1663,14 @@ export default function Home() {
       overduePendingCount,
       pendingCount,
       recentSent,
-      receivedTotal: receivedRequests.length,
+      receivedTotal: activeReceivedRequests.length,
       sentTotal: activeSentRequests.length,
       completedTotal: historyRequests.length,
       todoPendingCount,
       todoOverdueCount,
       combinedOverdueCount,
     }
-  }, [receivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos, isAdmin, isOwnTodo])
+  }, [receivedRequests, activeReceivedRequests, activeSentRequests, sentDisplayItems, historyRequests, activeTodos, isAdmin, isOwnTodo])
 
   const sidebarReceivedPendingCount = useMemo(() => {
     if (!currentUserId) return 0
@@ -1691,7 +1689,7 @@ export default function Home() {
       return (
         isOwnTodo(item) &&
         !item.is_completed &&
-        currentStatus !== STATUS.TODO.DONE &&
+        currentStatus === STATUS.TODO.NOT_STARTED &&
         isOverdue(item.deadline)
       )
     }).length
