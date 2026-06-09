@@ -6646,13 +6646,13 @@ export default function Home() {
       {renderTemplateEditModal()}
 
       {todoDetailTarget && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6">
           <button
             type="button"
             onClick={() => setTodoDetailTarget(null)}
             className="absolute inset-0"
           />
-          <div className="relative z-10 w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">
@@ -6746,13 +6746,13 @@ export default function Home() {
       )}
 
       {detailTarget && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/45 px-4 py-6">
           <button
             type="button"
             onClick={() => setDetailTarget(null)}
             className="absolute inset-0"
           />
-          <div className="relative z-10 w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-slate-200 bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">
