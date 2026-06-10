@@ -6,21 +6,23 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-    if (!supabaseUrl || !serviceKey) {
+    if (!supabaseUrl || !anonKey) {
       return NextResponse.json({ ok: false, error: 'Missing env' }, { status: 500 })
     }
 
-    // リクエストヘッダーからJWTを取得してユーザーを確認
+    // リクエストヘッダーからJWTを取得
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
     }
     const token = authHeader.replace('Bearer ', '')
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
+    // ユーザーのJWTでクライアントを作成
+    const supabase = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
     })
 
     // JWTを検証してユーザーIDを取得
