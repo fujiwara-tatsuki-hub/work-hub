@@ -887,6 +887,8 @@ export default function Home() {
   const [todoSubmitting, setTodoSubmitting] = useState(false)
   const [linkSubmitting, setLinkSubmitting] = useState(false)
   const [settingsSubmitting, setSettingsSubmitting] = useState(false)
+  const [cleanupRunning, setCleanupRunning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<{ requests: number; todos: number } | null>(null)
   const [createFormOpen, setCreateFormOpen] = useState(false)
   const [todoFormOpen, setTodoFormOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -2720,6 +2722,37 @@ export default function Home() {
     await fetchUserSettings()
     setSettingsSubmitting(false)
     alert('設定を保存しました。')
+  }
+
+  const handleManualCleanup = async () => {
+    if (!isAdmin) return
+    if (!window.confirm('7日以上前の完了済み依頼・ToDoを今すぐ削除しますか？')) return
+
+    setCleanupRunning(true)
+    setCleanupResult(null)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      alert('セッションが取得できませんでした。')
+      setCleanupRunning(false)
+      return
+    }
+
+    const res = await fetch('/api/admin/cleanup', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    const json = await res.json()
+
+    setCleanupRunning(false)
+
+    if (json.ok) {
+      setCleanupResult({ requests: json.deleted.requests, todos: json.deleted.todos })
+      void fetchRequests()
+      void fetchTodos()
+    } else {
+      alert(`クリーンアップ失敗: ${json.error}`)
+    }
   }
 
   const handleRoleChange = async (targetUserId: string, nextRole: string) => {
@@ -6310,6 +6343,28 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 px-5 py-4">
+                <p className="text-base font-semibold text-slate-900">履歴クリーンアップ</p>
+                <p className="mt-1 text-sm text-slate-500">完了後7日以上経過した依頼・ToDoを手動で削除します（自動削除の補完用）</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 px-5 py-5">
+                <button
+                  type="button"
+                  onClick={() => void handleManualCleanup()}
+                  disabled={cleanupRunning}
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-red-600 px-5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cleanupRunning ? '削除中...' : '古い履歴を今すぐ削除'}
+                </button>
+                {cleanupResult && (
+                  <p className="text-sm text-slate-600">
+                    完了：依頼 {cleanupResult.requests}件・ToDo {cleanupResult.todos}件 を削除しました
+                  </p>
+                )}
               </div>
             </div>
 
