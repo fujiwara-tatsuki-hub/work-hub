@@ -173,6 +173,9 @@ const TODO_STATUS_OPTIONS = [STATUS.TODO.NOT_STARTED, STATUS.TODO.IN_PROGRESS, S
 const MY_CONNECT_URL =
   'https://script.google.com/a/macros/chronusinc.jp/s/AKfycbzSKDnhFKHWFQZwlUVpi5yrXHuH2GCc4gUny2fUslMkrABG0vAQrTCHzyHBre1fJJT-dg/exec'
 
+const QRAFT_URL =
+  'https://qraft-m458ibn9q-gmochrkyusyu-8164s-projects.vercel.app'
+
 const STATUS_META: Record<
   string,
   {
@@ -4578,39 +4581,38 @@ export default function Home() {
 
   const renderDashboard = () => (
     <div className="grid min-w-0 gap-5 lg:grid-cols-3 lg:gap-6">
-      <a
-        href={MY_CONNECT_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="group min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:shadow-[0_28px_70px_rgba(59,130,246,0.16)] sm:rounded-[32px] sm:p-6"
-      >
+      <div className="min-w-0 max-w-full overflow-hidden rounded-[28px] border border-white/60 bg-white/65 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:rounded-[32px] sm:p-6">
         <div className="flex h-full flex-col">
           <div className="flex min-w-0 items-start justify-between gap-3">
             <p className="text-[15px] font-semibold text-slate-800">
-              マイコネクト
+              マイコネクト／Qraft
             </p>
             <span className="shrink-0 whitespace-nowrap rounded-full border border-white/70 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
               外部リンク
             </span>
           </div>
-          <div className="mt-4 min-w-0 flex-1 sm:mt-5">
-            <h2 className="text-[18px] font-bold tracking-tight text-slate-900 sm:text-[22px]">
-              マイコネクトを開く
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-slate-600 break-words">
-              タップすると指定のマイコネクト画面へ
-              <br className="hidden sm:block" />
-              移動します。
-            </p>
-          </div>
-          <div className="mt-5 sm:mt-6">
-            <div className="inline-flex w-full max-w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)] sm:px-5">
+          <div className="mt-4 flex min-w-0 flex-1 flex-col gap-3 sm:mt-5">
+            <a
+              href={MY_CONNECT_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)] transition hover:opacity-90 sm:px-5"
+            >
               <ExternalLinkIcon />
               マイコネクトを開く
-            </div>
+            </a>
+            <a
+              href={QRAFT_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(90deg,#53b8ff_0%,#7c6cff_100%)] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.35)] transition hover:opacity-90 sm:px-5"
+            >
+              <ExternalLinkIcon />
+              Qraftを開く
+            </a>
           </div>
         </div>
-      </a>
+      </div>
 
       <div
         className={cn(
