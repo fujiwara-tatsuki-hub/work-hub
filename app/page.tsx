@@ -174,7 +174,7 @@ const MY_CONNECT_URL =
   'https://script.google.com/a/macros/chronusinc.jp/s/AKfycbzSKDnhFKHWFQZwlUVpi5yrXHuH2GCc4gUny2fUslMkrABG0vAQrTCHzyHBre1fJJT-dg/exec'
 
 const QRAFT_URL =
-  'https://qraft-m458ibn9q-gmochrkyusyu-8164s-projects.vercel.app'
+  'https://qraft-rosy.vercel.app'
 
 const STATUS_META: Record<
   string,
